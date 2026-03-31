@@ -1,0 +1,603 @@
+
+
+─── PHASE 1 OF 8 ───
+Project Foundation, Design System & Authentication
+
+What we are building
+A web application called the CXT WELFARE— an internal financial management tool for a team's welfare account. It handles member contributions, welfare events, expense tracking, receipt storage, real-time reporting, and role-based access control. It is not a public product. Every user account is created by an administrator — there is no self-registration.
+
+Design Language
+Study the following design direction carefully and apply it consistently across every screen you build:
+Layout pattern:
+	•	Split-panel login page: form on the left (~45% width), a full-height image or branded panel on the right (~55%). Clean, uncluttered.
+	•	After login: fixed left sidebar navigation with icon + label, top header bar with search, notifications bell, and user profile. Main content area to the right.
+	•	Dashboard uses a summary card row at the top (3–4 stat cards side by side), followed by a wider content area with charts, tables, and action panels below.
+Colour system — blue only, all shades must complement each other:
+Primary Dark Blue:     #0F2D5C   (sidebar, headers, primary buttons)
+Primary Mid Blue:      #1A56DB   (active states, links, CTA buttons)
+Accent Blue:           #3B82F6   (highlights, icons, progress indicators)
+Light Blue:            #DBEAFE   (card backgrounds, hover states, table row alt)
+Pale Blue:             #EFF6FF   (page backgrounds, input backgrounds)
+White:                 #FFFFFF   (card surfaces, modal backgrounds)
+Text Dark:             #0F172A   (headings, primary body text)
+Text Mid:              #475569   (secondary text, labels, metadata)
+Text Light:            #94A3B8   (placeholders, disabled states, captions)
+Border:                #CBD5E1   (input borders, dividers, table borders)
+Success:               #16A34A   (paid status, success states — use sparingly)
+Warning:               #D97706   (pending, missing receipts — use sparingly)
+Danger:                #DC2626   (overdue, lockout, error states — use sparingly)
+Typography:
+	•	Font: Inter (Google Fonts). Import it.
+	•	Headings: font-weight 700. Page titles 24–28px. Section headings 18–20px.
+	•	Body: font-weight 400, 14–15px.
+	•	Labels and metadata: font-weight 500, 12–13px, uppercase tracking on table headers.
+Component style:
+	•	Cards: white background, 1px solid #CBD5E1 border, border-radius 12px, subtle box-shadow (0 1px 4px rgba(0,0,0,0.06)).
+	•	Buttons: Primary = #1A56DB background, white text, border-radius 8px, font-weight 600. Secondary = white background, #1A56DB border and text. Danger = #DC2626.
+	•	Inputs: border 1px #CBD5E1, border-radius 8px, background #EFF6FF, focus ring #1A56DB, 40px height.
+	•	Sidebar: #0F2D5C background, white text, active item has #1A56DB left-border accent and slightly lighter background tint. Icons are clean and minimal.
+	•	Stat cards on dashboard: white background, coloured icon container top-left (use light blue tint), metric value large and bold in #0F2D5C, label below in #475569.
+	•	Tables: clean, no heavy borders. Header row background #DBEAFE, text #0F2D5C font-weight 600 uppercase 12px. Alternating rows: white / #EFF6FF. Row hover: #DBEAFE.
+	•	Status badges: pill-shaped, small. Paid = light green bg / green text. Pending = light amber bg / amber text. Overdue = light red bg / red text. Read-only = light blue bg / blue text.
+	•	Modals: white card, border-radius 16px, backdrop blur, header with title and close X, footer with action buttons right-aligned.
+	•	No ai generated like ui like  emojis…etc
+
+Phase 1 Task — Authentication System
+Build the complete authentication flow. Use Supabase Auth as the backend. Do not connect to Supabase yet — scaffold the auth UI and logic with placeholder calls that we will wire to Supabase in Phase 7.
+Screens to build:
+1. Login Page
+	•	Left panel: Platform logo or name "WelfarePlatform" at top-left. Heading: "Welcome back." Subtext: "Sign in to your account to continue." Email field. Password field with show/hide toggle. "Forgotten password?" link right-aligned above password field. "Sign In" primary button full width. Small note at the bottom: "Don't have an account? Contact your administrator." — no registration link, just this text. No self-registration ever.
+	•	Right panel: Solid gradient from #0F2D5C to #1A56DB. Overlay a short tagline: "Welfare, accounted for." and a subtle geometric or abstract pattern. No stock photo needed.
+2. First Login — Forced Password Reset Page
+	•	Triggered when must_change_password = true on the user's profile.
+	•	Heading: "Set your new password". Subtext: "Your account was created with a temporary password. You must set a new password before you can access the platform."
+	•	New password field + Confirm password field.
+	•	Password requirements shown live as the user types: ✓ / ✗ indicators for: minimum 10 characters, uppercase letter, lowercase letter, number, special character.
+	•	"Set Password & Continue" primary button.
+	•	No way to skip or navigate away from this screen until completed.
+3. Forgot Password Page
+	•	Email field. "Send Reset Link" button.
+	•	Confirmation state: "If that email is registered, a reset link has been sent. It will expire in 15 minutes."
+4. Auth logic to scaffold (placeholder functions for now):
+	•	signIn(email, password) — on success, read role from user profile, redirect to correct dashboard route based on role.
+	•	checkFirstLogin(userId) — returns boolean, intercepts routing if true.
+	•	signOut() — clears session, redirects to login.
+	•	sendPasswordReset(email).
+	•	Failed login counter — after 5 failed attempts, show lockout message: "Your account has been temporarily locked. Please try again in 30 minutes." Lock state stored in local state for now.
+Routing structure to set up now (pages can be empty shells for now):
+/login
+/reset-password         (first login forced reset)
+/forgot-password
+/dashboard              (Treasurer/Chairman — redirect here after login)
+/contributions          (Contributions module)
+/events                 (Events module)
+/expenses               (Expense & Receipt module)
+/reports                (Reports module)
+/audit                  (Audit log — Auditor/Super Admin only)
+/members                (Member management)
+/settings               (System settings — Super Admin only)
+/my-account             (Member self-service — personal contribution history)
+Route guards: protect every route except /login, /forgot-password, /reset-password. If no authenticated session, redirect to /login. If authenticated but must_change_password = true, redirect to /reset-password regardless of which route they try to access.
+
+Do not build anything beyond Phase 1 yet. Complete this fully, then stop and wait  before you continue for Phase 2.
+
+
+─── PHASE 2 OF 8 ───
+Sidebar, Header, Shell Layout & Role-Based Dashboard
+
+Phase 2 Task — Application Shell and Role-Aware Dashboard
+Build the persistent application shell (sidebar + header) and the dashboard home screen. The dashboard must display different content depending on the logged-in user's role.
+
+Application Shell
+Left Sidebar (fixed, full height): Background: #0F2D5C. Width: 240px on desktop, collapsible to icon-only (64px) on smaller screens.
+Top of sidebar: Platform logo / name "WelfarePlatform" in white, bold.
+Navigation items — show only items the user's role is permitted to access:
+Home / Dashboard        — all roles
+Contributions           — Super Admin, Treasurer, Secretary
+Events                  — Super Admin, Treasurer, Chairman, Secretary
+Expenses                — Super Admin, Treasurer
+Reports                 — Super Admin, Treasurer, Chairman, Secretary, Auditor
+Audit Log               — Super Admin, Auditor
+Members                 — Super Admin, Treasurer, Chairman
+Settings                — Super Admin only
+My Account              — Member role only (replaces all the above for Member role)
+Active nav item: left border accent #1A56DB, background slightly lighter (#1a3a6b). Hover state: slightly lighter background tint.
+Bottom of sidebar: Avatar circle + user name + role badge. "Sign Out" link.
+Top Header Bar: Background white, border-bottom 1px #CBD5E1. Height 64px.
+	•	Left: Page title (dynamic, matches current route).
+	•	Right: Search input (placeholder "Search..."), Notifications bell icon with red dot badge if unread, User avatar with dropdown (My Profile, Change Password, Sign Out).
+
+Dashboard — Treasurer / Super Admin View
+Greeting row at top: "Good morning, [First Name]." in 22px bold #0F2D5C. Subtext: "Here is your welfare summary for [Month Year]."
+Stat card row (4 cards):
+	•	Current Welfare Balance — large GHS amount, icon: wallet
+	•	Total Contributions This Month — GHS amount, subtext: "X of Y members paid"
+	•	Total Expenses This Month — GHS amount, subtext: "X events this month"
+	•	Unpaid Members — count in amber/warning colour, subtext: "This month", click navigates to contributions filtered to unpaid
+Below stat cards, two columns:
+Left column (60%):
+	•	Income vs Expenditure chart — bar or line chart, current quarter, month by month. Use a charting library. Bars: Income = #1A56DB, Expense = #3B82F6 lighter shade.
+	•	Below chart: Recent Activity feed — last 5 entries made in the system (contribution recorded, expense logged, receipt uploaded, event created). Each row: action description, who did it, timestamp.
+Right column (40%):
+	•	"Quick Actions" card with 3 buttons stacked: "Record Contributions", "Create Event", "Log Expense" — each a full-width outlined button with icon.
+	•	"Alerts" card — dynamic list: 
+	•	Expenses without receipts: "X expenses are missing receipts" → link to expenses filtered
+	•	If any: "Last contribution entry was X days ago" — warning if > 14 days
+	•	Upcoming events in the next 7 days
+
+Dashboard — Chairman View
+Same stat cards as Treasurer. Replace Quick Actions with:
+	•	"Pending Approvals" panel: list of entries flagged for review with Approve / Flag buttons inline.
+	•	"User Management" shortcut card linking to Members page.
+
+Dashboard — Secretary View
+Simplified: stat cards (view only, no amounts — show count metrics only). Quick action card with only "Record Contributions" and "Create Event". No expense or financial balance cards.
+
+Dashboard — Auditor View
+Stat cards: total records this period, total receipts attached, total expenses without receipts (as a flag count). No financial balance shown. Panel: "Recent entries to review" — list of recent records with "View" links.
+
+Dashboard — Member View
+Completely different layout. No sidebar financial items. Simple clean page:
+	•	Greeting with name.
+	•	"Your Contribution Status" card: table of the last 12 months showing Paid / Unpaid / Partial for each month with amounts.
+	•	"Recent Welfare Events" card: list of recent events (name, date, type only — no amounts).
+	•	No balances, no team totals, no reports access.
+
+Use mock/static data for all dashboard values for now. We will connect to real data in Phase 7.
+Do not build anything beyond Phase 2 yet. Complete fully, then stop and wait before building Phase 3.
+
+
+─── PHASE 3 OF 8 ───
+Member Management & Contributions Module
+
+Phase 3 Task — Members Page and Contributions Module
+
+Members Page (/members) — Accessible by Super Admin, Treasurer, Chairman
+Page layout:
+	•	Page title: "Members". Subtext: "Manage welfare members and user accounts."
+	•	Top action bar: Search input (filter by name or ID), Role filter dropdown (All / Treasurer / Chairman / Secretary / Auditor / Member), Status filter (Active / Disabled), and "Add New Member" primary button on the right.
+Members table columns: Member ID | Full Name | Role (badge) | Email | Phone | Status (Active/Disabled badge) | Date Added | Actions
+Actions column: "Edit" icon button, "Disable" / "Enable" toggle, "Reset Password" (Super Admin only).
+Add New Member modal: Fields: Full Name (required), Member ID (required, auto-suggest format e.g. WEL-001), Email Address (required), Phone Number (required), Role (dropdown — Treasurer / Chairman / Secretary / Auditor / Member), Department or Group (optional text). On save: show success toast "Account created. Temporary credentials will be sent to the user." Validate all required fields before allowing save. If email already exists, show inline error.
+Edit Member modal: Same fields. Role change shows a confirmation: "Changing this user's role will take effect on their next login. Their existing activity will remain recorded. Confirm?"
+Disable Account: Confirmation modal: "This account will be disabled. The user will not be able to log in, but all their records will be preserved. Confirm?"
+
+Contributions Module (/contributions) — Accessible by Super Admin, Treasurer, Secretary
+Page layout:
+	•	Page title: "Member Contributions". Subtext: "Record and track monthly welfare payments."
+	•	Top controls: Month selector (dropdown: January 2026 / February 2026 etc.), Year selector. "Load Month" button to populate the list. Export button (disabled until data is loaded).
+Contribution entry table for selected month: Columns: Member ID | Member Name | Expected Amount (GHS) | Amount Paid | Payment Date | Payment Method | Status | Actions
+Status badge: Paid (green) / Partial (amber) / Unpaid (red).
+Payment Method options: Cash / Mobile Money / Bank Transfer.
+Each row is editable inline — click "Mark as Paid" to open a small inline form:
+	•	Amount Paid (pre-filled with expected amount, editable for partial)
+	•	Payment Date (date picker, defaults to today)
+	•	Payment Method (dropdown)
+	•	"Save" and "Cancel"
+On save per row: row status badge updates immediately, summary counters at top update.
+Summary bar above the table (auto-updates):
+	•	Total Expected: GHS X
+	•	Total Collected: GHS X
+	•	Outstanding: GHS X
+	•	Members Paid: X / Y
+	•	Progress bar: visual fill showing % collected
+Bulk save button: "Save All Changes for [Month]" — posts all pending changes at once.
+Partial payment support: If amount paid < expected, status = "Partial". The difference is shown in a small "Outstanding: GHS X" label on the row.
+Contribution History tab: Below the monthly entry table, a second tab "Contribution History" shows all months on record in a summary table: Month | Total Expected | Total Collected | Members Paid | % Collected | Status. Click any row to expand to member-level detail.
+
+Use mock data. Wire save actions to update local state so the UI responds correctly. We connect to Supabase in Phase 7.
+Do not build anything beyond Phase 3. Complete fully, then stop and wait  check for errors before building Phase 4.
+
+
+─── PHASE 4 OF 8 ───
+Events Module & Expense/Receipt Module
+
+Phase 4 Task — Events and Expenses
+
+Events Module (/events) — Accessible by Super Admin, Treasurer, Chairman, Secretary
+Page layout:
+	•	Page title: "Welfare Events". Subtext: "Create and manage welfare activities."
+	•	Top action bar: Search input, Event Type filter (All / Birthday / Bereavement / Meetup / End-of-Year / Hospital Support / Other), Status filter (All / Upcoming / In Progress / Completed), "Create Event" primary button.
+Events list / card view: Toggle between card grid and table view. Cards preferred as default.
+Each event card shows:
+	•	Event name (bold, large)
+	•	Event type badge (colour-coded: Birthday = blue, Bereavement = grey, Meetup = teal, etc.)
+	•	Date
+	•	Organiser name
+	•	Budget: GHS X (if set)
+	•	Actual Spend: GHS X (auto-calculated from logged expenses)
+	•	Budget status: under budget (green), over budget (red), no budget set (grey)
+	•	Expense count: "X expenses logged"
+	•	Receipt status: "X of Y expenses have receipts" with amber warning if any missing
+	•	Actions: "View", "Add Expense", "Edit", "Delete" (delete disabled if expenses are attached)
+Create Event modal: Fields:
+	•	Event Name (required, text)
+	•	Event Type (required, dropdown: Birthday / Bereavement / Meetup / End-of-Year / Hospital Support / Team Bonding / Other)
+	•	Event Date (required, date picker)
+	•	Description / Purpose (textarea)
+	•	Organiser / Responsible Person (text or member selector)
+	•	Expected Budget — GHS (optional, number field) On save: event appears in list immediately. Show success toast.
+Event Detail Page (click "View" on an event): Full-width page showing:
+	•	Event header: name, type badge, date, organiser, description.
+	•	Budget vs Actual spend bar (visual progress).
+	•	Expense list for this event (same as Expenses module but pre-filtered to this event).
+	•	"Add Expense" button prominent at top.
+	•	Receipts summary: X attached / Y missing.
+
+Expenses & Receipt Module (/expenses) — Accessible by Super Admin, Treasurer
+Page layout:
+	•	Page title: "Expenses & Receipts". Subtext: "Log event costs and attach supporting evidence."
+	•	Top controls: Event filter (dropdown of all events), Category filter, Date range filter, Receipt status filter (All / Has Receipt / Missing Receipt). "Log Expense" primary button.
+Expenses table columns: Date | Event | Category | Description | Vendor / Payee | Amount (GHS) | Paid By | Receipt | Logged By | Actions
+Receipt column: green paperclip icon if attached, amber warning icon with "Missing" text if not.
+Log Expense modal / drawer: Fields:
+	•	Event (required, searchable dropdown — shows event name + date)
+	•	Expense Category (required, dropdown: Food & Drinks / Cake / Decoration / Transport / Venue / Gifts / Logistics / Emergency Support / Other)
+	•	Amount — GHS (required, number)
+	•	Date of Expense (required, date picker)
+	•	Vendor / Payee (required, text)
+	•	Description of purchase (required, textarea)
+	•	Paid By (optional, member selector or free text)
+	•	Receipt Upload (optional at time of entry — file upload accepting JPG, PNG, PDF. Max 5MB. Preview thumbnail if image.)
+Validation: all required fields must be filled before save is enabled. On save: row appears in table, dashboard expense totals update, event spend updates.
+Adding receipt later: each expense row has an "Attach Receipt" action if no receipt is present. Clicking opens a file upload modal for that specific expense.
+Expense detail view (click row): Slide-in right panel showing all fields in read-only, receipt preview (image inline or PDF link), edit history log at bottom ("Created by X on date", "Edited by X — amount changed from GHS Y to GHS Z on date").
+Receipt viewer: If receipt is an image, show inline with zoom. If PDF, show a "View PDF" button that opens in a new tab.
+
+Use mock data throughout. All modals and forms should update local state correctly so the UI feels functional.
+Do not build beyond Phase 4. Complete fully, then stop and wait  check for errors before building for Phase 5.
+
+
+─── PHASE 5 OF 8 ───
+Reports Module & Audit Log
+
+Phase 5 Task — Reports and Audit Log
+
+Reports Module (/reports) — Accessible by Super Admin, Treasurer, Chairman, Secretary, Auditor
+Page layout:
+	•	Page title: "Reports". Subtext: "View and export welfare financial reports."
+	•	Report type selector at the top — 5 tabs or card buttons:
+Monthly Contribution Report
+Event Expense Report
+Income & Expenditure Statement
+Quarterly Welfare Report
+Audit Support Report
+Each report type has its own controls and output view below.
+
+Report 1 — Monthly Contribution Report
+Controls: Month selector + Year selector + "Generate" button.
+Output table:
+	•	Summary row at top: Total Expected | Total Received | Outstanding | % Collected
+	•	Member-level table: Member ID | Name | Expected | Paid | Payment Date | Method | Status
+	•	Footer total row.
+	•	Export buttons: "Export PDF" and "Export CSV"
+
+Report 2 — Event Expense Report
+Controls: Event selector (dropdown) + "Generate" button.
+Output:
+	•	Event header details: name, date, organiser, budget.
+	•	Expense lines table: Category | Description | Vendor | Amount | Date | Paid By | Receipt (icon)
+	•	Total cost row at bottom.
+	•	"View Receipt" inline link on each row that has one.
+	•	Export buttons.
+
+Report 3 — Income & Expenditure Statement
+Controls: Period selector — Monthly / Quarterly / Yearly + specific month/quarter/year. "Generate" button.
+Output — structured statement layout (not a table, a formatted financial statement):
+WELFARE INCOME & EXPENDITURE STATEMENT
+Period: [Selected Period]
+
+INCOME
+  Member Contributions          GHS X
+  Other Income (if any)         GHS X
+  ─────────────────────────────────
+  Total Income                  GHS X
+
+EXPENDITURE
+  [Event Name 1]                GHS X
+  [Event Name 2]                GHS X
+  ─────────────────────────────────
+  Total Expenditure             GHS X
+
+  ═════════════════════════════════
+  Opening Balance               GHS X
+  Add: Total Income             GHS X
+  Less: Total Expenditure       GHS X
+  ─────────────────────────────────
+  CLOSING BALANCE               GHS X (bold, prominent)
+Export as PDF preserving this formatted layout.
+
+Report 4 — Quarterly Welfare Report
+Controls: Quarter selector (Q1 / Q2 / Q3 / Q4) + Year. "Generate" button.
+Output:
+	•	Quarter summary card: contributions received, events held, total expenses, closing balance.
+	•	Contributions section: month-by-month summary table for the quarter.
+	•	Events section: list of events in the quarter with individual totals.
+	•	Combined I&E statement for the quarter.
+	•	Export buttons.
+
+Report 5 — Audit Support Report
+Controls: Date range selector. "Generate" button.
+Output table: Date | Record Type | Description | Amount | Entered By | Entered On | Last Edited By | Edit Date | Receipt Attached
+Each row expandable to show full edit history (before/after values).
+
+Audit Log Page (/audit) — Accessible by Super Admin, Auditor only
+	•	Page title: "Audit Log". Subtext: "Immutable record of all system activity."
+	•	Filter bar: Date range, User filter, Action type filter (Login / Logout / Record Created / Record Edited / Record Deleted / Report Exported / Role Changed / Password Reset).
+Table columns: Timestamp | User | Role | Action | Details | IP / Device
+Details column: short description e.g. "Expense #47 amount changed from GHS 200 to GHS 250" or "User John Mensah role changed from Member to Secretary".
+Important note displayed at top of page: "This log is read-only and cannot be modified by any user, including administrators."
+No export on audit log for non-Super Admin users.
+
+Populate all reports with realistic mock data (GHS amounts, Ghanaian names, real-looking dates). This makes the reports feel real and testable.
+Do not build beyond Phase 5. Complete fully, then stop and wait  check for errors before building for Phase 6.
+
+
+─── PHASE 6 OF 8 ───
+Settings, User Profile, Notifications & Final UI Polish
+
+Phase 6 Task — Settings, Profile, Notifications, and UI Polish
+
+Settings Page (/settings) — Super Admin only
+Tabs across the top:
+Tab 1 — General Settings
+	•	Platform name (editable text)
+	•	Default currency (fixed to GHS for now, display only)
+	•	Monthly contribution amount — GHS (editable number field — this is the default expected amount per member per month)
+	•	Contribution day reminder (optional — day of month to flag overdue)
+	•	Financial year start month (dropdown Jan–Dec)
+	•	"Save Settings" button
+Tab 2 — User Management
+	•	Same Members table as /members page — embedded here as well for quick admin access.
+Tab 3 — Reporting Periods
+	•	Table of configured quarters: Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec (editable start/end months if needed).
+	•	Current period highlighted.
+Tab 4 — Security Settings
+	•	Session timeout: display "30 minutes" (read-only for now, configurable later)
+	•	Password policy summary displayed (read-only): length 10, complexity rules, expiry 90 days, lockout after 5 attempts.
+	•	Note: "These settings are enforced by the system and cannot be changed from this panel."
+
+My Profile / Change Password modal
+Accessible from the user avatar dropdown in the header (all roles).
+Profile tab:
+	•	Full Name (editable)
+	•	Email (read-only — contact admin to change)
+	•	Phone Number (editable)
+	•	Role (read-only — contact admin to change)
+	•	Member ID (read-only)
+	•	"Save Changes" button
+Change Password tab:
+	•	Current Password field
+	•	New Password field (with live requirement indicators same as first-login screen)
+	•	Confirm New Password field
+	•	"Update Password" button
+
+Notifications System
+Bell icon in header. On click, opens a dropdown panel.
+Notification types to generate (use mock data):
+	•	"3 members have not paid for March 2026" — links to contributions
+	•	"Expense #12 is missing a receipt" — links to that expense
+	•	"You have 2 pending approvals" (Chairman only) — links to flagged entries
+	•	"Password expiry in 7 days" — links to change password
+	•	"New user account created: [Name]" (Treasurer/Chairman only)
+Each notification: icon, message text, timestamp, "Mark as read" on click. "Mark all as read" button at top of panel. Unread count shown as red badge on bell.
+
+UI Polish Pass — apply across all pages:
+	•	All tables must have proper empty states: if no data, show a centred illustration placeholder and helpful message e.g. "No contributions recorded for this month yet. Click 'Record Contributions' to begin."
+	•	All forms must have proper loading states on submit buttons ("Saving..." with spinner).
+	•	All destructive actions (disable account, delete event) must have a confirmation modal before proceeding.
+	•	Toast notifications for all actions: success (green), error (red), info (blue). Toast appears top-right, auto-dismisses after 4 seconds.
+	•	All monetary amounts must be formatted consistently: GHS 1,250.00 — always two decimal places, always GHS prefix, comma thousands separator.
+	•	All dates: display as "15 March 2026" format throughout. Date pickers should enforce this format.
+	•	Responsive behaviour: sidebar collapses to icon-only below 1024px. All tables scroll horizontally on small screens. Cards stack vertically on mobile.
+	•	Page transitions: subtle fade-in on route change (150ms). No jarring jumps.
+	•	Accessibility: all interactive elements must have visible focus rings using #1A56DB. Form labels must be properly associated with inputs. Error messages shown below the relevant field, not as alerts only.
+	•	Role guard visual: if a user somehow reaches a page they don't have access to, show a clean "Access Denied" page — not a blank screen. "You don't have permission to view this page. Contact your administrator if you believe this is an error." with a "Go to Dashboard" button.
+
+Do not build beyond Phase 6. Complete fully, then stop and wait check for errors before building  for Phase 7.
+
+
+─── PHASE 7 OF 8 ───
+Supabase Backend Integration
+
+Phase 7 Task — Connect Everything to Supabase
+
+Supabase Project Setup
+Connect the application to a Supabase project. Use the Supabase JavaScript client (@supabase/supabase-js). Store the Supabase URL and anon key in environment variables:
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+
+Database Schema
+Create the following tables in Supabase. Apply Row Level Security (RLS) to every table.
+-- Users / Profiles (extends Supabase auth.users)
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  member_id TEXT UNIQUE,
+  email TEXT NOT NULL,
+  phone TEXT,
+  role TEXT NOT NULL CHECK (role IN ('super_admin','treasurer','chairman','secretary','auditor','member')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  must_change_password BOOLEAN DEFAULT TRUE,
+  failed_login_attempts INT DEFAULT 0,
+  locked_until TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  created_by UUID REFERENCES profiles(id)
+);
+
+-- Members (welfare members who contribute — same as profiles but this captures contribution expectations)
+CREATE TABLE contribution_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  monthly_amount NUMERIC(12,2) NOT NULL,
+  effective_from DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Monthly Contributions
+CREATE TABLE contributions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  member_id UUID NOT NULL REFERENCES profiles(id),
+  month INT NOT NULL CHECK (month BETWEEN 1 AND 12),
+  year INT NOT NULL,
+  expected_amount NUMERIC(12,2) NOT NULL,
+  amount_paid NUMERIC(12,2) DEFAULT 0,
+  payment_date DATE,
+  payment_method TEXT CHECK (payment_method IN ('cash','mobile_money','bank_transfer')),
+  status TEXT DEFAULT 'unpaid' CHECK (status IN ('paid','partial','unpaid')),
+  recorded_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(member_id, month, year)
+);
+
+-- Welfare Events
+CREATE TABLE events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  event_type TEXT NOT NULL CHECK (event_type IN ('birthday','bereavement','meetup','end_of_year','hospital_support','team_bonding','other')),
+  event_date DATE NOT NULL,
+  description TEXT,
+  organiser TEXT,
+  expected_budget NUMERIC(12,2),
+  status TEXT DEFAULT 'upcoming' CHECK (status IN ('upcoming','in_progress','completed','cancelled')),
+  created_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Expenses
+CREATE TABLE expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id UUID NOT NULL REFERENCES events(id),
+  category TEXT NOT NULL CHECK (category IN ('food_drinks','cake','decoration','transport','venue','gifts','logistics','emergency_support','other')),
+  description TEXT NOT NULL,
+  vendor TEXT NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  expense_date DATE NOT NULL,
+  paid_by TEXT,
+  receipt_url TEXT,
+  receipt_filename TEXT,
+  has_receipt BOOLEAN GENERATED ALWAYS AS (receipt_url IS NOT NULL) STORED,
+  created_by UUID REFERENCES profiles(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Audit Log
+CREATE TABLE audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id),
+  action TEXT NOT NULL,
+  record_type TEXT,
+  record_id UUID,
+  details JSONB,
+  ip_address TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+Row Level Security Policies
+Apply these RLS rules:
+-- profiles: users can read their own profile; super_admin/treasurer/chairman can read all
+-- contributions: treasurer/secretary can insert and update; all authenticated can read (for their own); member can only read their own
+-- events: treasurer/chairman/secretary can insert; all authenticated can read
+-- expenses: treasurer can insert and update; auditor/chairman can read all; others restricted
+-- audit_log: insert allowed for authenticated (via server-side trigger); select only for super_admin and auditor
+Write out the full RLS policy SQL for each table. Apply them.
+
+Supabase Storage
+Create a storage bucket called receipts. Configure it as private (not public). Files accessed via signed URLs generated server-side.
+Upload logic in the Expenses module: when a receipt is attached, upload to receipts/{expense_id}/{filename} and store the path in expenses.receipt_url. To display, generate a signed URL valid for 60 minutes.
+
+Replace all mock data with live Supabase queries:
+Wire up each module:
+	•	Auth — replace placeholder signIn/signOut/resetPassword with supabase.auth.* calls. On sign in, fetch the user's profile from profiles table to get role and must_change_password. Store role in app state (context or store).
+	•	Contributions — fetch contributions for selected month/year. Insert/update on save. Real-time totals calculated from fetched data.
+	•	Events — fetch all events. Insert on create. Update on edit. Fetch associated expenses count and total spend per event via join or separate query.
+	•	Expenses — fetch expenses filtered by event/date/category. Insert on log expense. Update receipt_url when receipt is attached.
+	•	Reports — all report data fetched with SQL queries: aggregate contributions by period, sum expenses by event, calculate balances. Display on-screen. Export to PDF using a library (jsPDF or similar).
+	•	Audit Log — read from audit_log table. Write audit entries: create a helper function logAudit(action, recordType, recordId, details) called after every insert, update, delete, login, logout, export.
+	•	Members / User Management — fetch from profiles. Insert new profile on "Add New Member" (also creates a Supabase auth user with a generated temporary password and must_change_password = true). Update role and status.
+	•	Dashboard — all stat cards fetched live. Balance calculated as: sum of all contributions paid minus sum of all expenses.
+
+Error handling:
+	•	Every Supabase call wrapped in try/catch.
+	•	On error: show toast with message "Something went wrong. Please try again." Log error to console.
+	•	On network failure: show banner "You appear to be offline. Some features may not be available."
+
+Do not build beyond Phase 7. Complete fully, test that real data flows correctly, then stop and wait  check for errors before building for Phase 8.
+
+
+─── PHASE 8 OF 8 ───
+Final Testing, Edge Cases & Production Readiness
+
+Phase 8 Task — Hardening, Edge Cases, and Production Readiness
+
+1. Role Enforcement Audit
+Go through every page and every action in the application and verify that role-based access is enforced at two levels:
+	•	UI level: buttons, actions, and navigation items that a role cannot access must be hidden or disabled — not just visually absent but never rendered.
+	•	Data level: Supabase RLS ensures the data cannot be fetched even if someone bypasses the UI. Test this by calling the Supabase client directly in browser console for each role.
+Confirm this matrix is fully enforced:
+	•	Member role: can only see their own contribution records. Nothing else.
+	•	Auditor: read-only everywhere. No create, edit, or delete buttons visible or functional.
+	•	Secretary: can record contributions, create events, upload receipts. Cannot edit expenses or access audit log.
+	•	Treasurer: full access to financial modules. Cannot access system settings or reset other users' passwords.
+	•	Chairman: oversight access. Can approve/flag, manage users, view all reports. Cannot directly record financial entries.
+	•	Super Admin: full access to everything.
+
+2. Edge Case Handling
+Implement proper handling for each of these scenarios:
+	•	Partial payment: member pays GHS 30 when expected GHS 50. Status = Partial. Outstanding = GHS 20. Show this clearly on the row and in the member's history. The income posted is GHS 30, not GHS 50.
+	•	Member pays two months at once: treasurer can open each month separately and mark payment for each. No bulk-month payment in one entry — each month is its own record.
+	•	Contribution amount changes: new contribution_settings entry with a new effective_from date. Historical records keep their original expected_amount. Only new months after the effective date use the new amount.
+	•	Disabled user's data: when an account is disabled, their records remain fully visible and attributed to them in all reports and the audit log. The name appears as "[Name] (Disabled)" in the audit log to indicate the account is no longer active.
+	•	Expense without event: not possible — event field is required and the expense form will not submit without one.
+	•	Receipt over 5MB: file upload validates size client-side and shows inline error "File too large. Maximum size is 5MB."
+	•	Empty month: if a month has no contributions recorded yet, the report shows all members as Unpaid with GHS 0 collected — not an empty/broken state.
+	•	Zero balance edge case: if expenses exceed contributions (balance goes negative), the balance card on the dashboard shows the figure in red with a warning label "Balance is negative."
+
+3. Performance Checks
+	•	All Supabase queries should select only the columns needed — no SELECT * in production queries.
+	•	Expenses and contributions tables will grow over time — ensure the event filter and month/year filter are always applied so queries are scoped, never loading all records at once.
+	•	Receipt images displayed as thumbnails (max 200px) in tables. Full resolution only loads when user clicks to view.
+	•	Audit log loaded with pagination — 50 rows per page, with "Load more" or page controls.
+
+4. Security Final Checks
+	•	Confirm no Supabase service role key is exposed in the frontend. Only anon key in environment variables.
+	•	Confirm all file uploads go to the private receipts bucket and are only accessible via signed URLs.
+	•	Confirm must_change_password check runs on every route load for authenticated users — not just on login.
+	•	Confirm audit log entries are written for: every sign in, every sign out, every failed login attempt, every record created/edited/deleted, every report exported, every role change, every password reset.
+	•	Confirm session expiry: if Supabase session is expired, user is redirected to /login with message "Your session has expired. Please sign in again."
+
+5. Export Quality
+	•	PDF exports must look professional: platform name as header, report title, period, generation timestamp, and "Generated by [User Name]" footer on every page.
+	•	CSV exports must have proper column headers and correctly formatted amounts (no currency symbols in CSV — numbers only, headers label the currency).
+	•	Test each of the 5 report types for export.
+
+6. Final Responsive Check
+Test every page at three breakpoints:
+	•	1440px (large desktop) — full layout
+	•	1024px (laptop) — sidebar collapses
+	•	375px (mobile) — single column, all cards stacked, tables horizontally scrollable
+Fix any layout breaks found.
+
+7. Final Delivery Checklist
+Before calling the build complete, confirm:
+	•	[ ] Login, first-login password reset, forgot password — all working end-to-end with Supabase Auth
+	•	[ ] All 6 roles log in and land on the correct dashboard with correct content
+	•	[ ] Contributions can be recorded, saved, and reflected in the dashboard balance
+	•	[ ] Events can be created and expenses logged under them
+	•	[ ] Receipts can be uploaded, stored in Supabase Storage, and viewed
+	•	[ ] All 5 reports generate correctly from live data
+	•	[ ] Audit log records all key actions
+	•	[ ] Members can be created, roles changed, accounts disabled
+	•	[ ] No role can access data or actions beyond their permission level
+	•	[ ] All forms validate correctly and show helpful error messages
+	•	[ ] All empty states, loading states, and error states are handled
+	•	[ ] PDF and CSV export working for all reports
+	•	[ ] Mobile layout functional
+	•	[ ] No console errors in production build
+
+The platform is complete when all items on this checklist pass.
+
+End of Antigravity Build Prompt — 
+

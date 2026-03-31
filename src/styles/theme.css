@@ -1,0 +1,18 @@
+:root {
+  --primary-dark: #0F2D5C;
+  --primary-mid: #1A56DB;
+  --accent-blue: #3B82F6;
+  --light-blue: #DBEAFE;
+  --pale-blue: #EFF6FF;
+  --white: #FFFFFF;
+  --text-dark: #0F172A;
+  --text-mid: #475569;
+  --text-light: #94A3B8;
+  --border-color: #CBD5E1;
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+  
+  --font-family: 'Inter', sans-serif;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.06);
+}
