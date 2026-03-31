@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, supabaseAdmin } from '../services/api';
+import { supabase } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -15,26 +15,36 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) fetchUserProfile(session.user);
-      else { 
-        setUser(prev => prev?.id === 'mock-1' ? prev : null); 
-        setLoading(false); 
+      else {
+        setUser(null);
+        setLoading(false);
       }
     });
-    
+
     return () => subscription.unsubscribe();
   }, []);
 
+  // SECURITY: Always fail closed — if we cannot verify the role, sign out.
+  // Never grant an elevated role on error.
   const fetchUserProfile = async (authUser) => {
     try {
-      const { data, error } = await supabase.from('users').select('*').eq('id', authUser.id).single();
-      if (error) {
-        console.warn('Profile not found in users table yet or RLS blocked. Faking default role.', error);
-        setUser({ ...authUser, role: 'super_admin', full_name: 'Admin User' });
-      } else {
-        setUser({ ...authUser, ...data });
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (error || !data) {
+        console.error('Could not verify user profile/role. Signing out for security.', error);
+        await supabase.auth.signOut();
+        setUser(null);
+        return;
       }
+
+      setUser({ ...authUser, ...data });
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      console.error('Unexpected error fetching user profile:', err);
+      await supabase.auth.signOut();
       setUser(null);
     } finally {
       setLoading(false);
@@ -42,17 +52,9 @@ export function AuthProvider({ children }) {
   };
 
   const signIn = async (email, password) => {
-    // If testing without a real user, we can bypass to simulate success using a fake mock session
-    // otherwise use live auth.
+    // No mock bypass. No hardcoded credentials. All logins go through Supabase Auth.
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-       // Silent fallback for demo testing if user doesn't exist yet in Supabase Auth
-       if (email === 'admin@welfare.com' && password === 'P@ssw0rd123!') {
-         setUser({ id: 'mock-1', email, role: 'super_admin', full_name: 'Mock Admin' });
-         return { success: true };
-       }
-       throw error;
-    }
+    if (error) throw error;
     await fetchUserProfile(data.user);
     return { success: true };
   };
@@ -74,20 +76,18 @@ export function AuthProvider({ children }) {
   };
 
   // Update the authenticated user's password in Supabase Auth and clear the
-  // must_change_password flag in the users table so the forced-reset loop ends.
+  // must_change_password flag via the regular anon client (RLS allows own-row updates).
   const updatePassword = async (newPassword) => {
     const { data, error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
 
     const userId = data?.user?.id || user?.id;
     if (userId) {
-      // Clear the flag in the users table (needs service-role to bypass RLS)
-      await supabaseAdmin
+      await supabase
         .from('users')
         .update({ must_change_password: false })
         .eq('id', userId);
 
-      // Keep local state in sync
       setUser(prev => prev ? { ...prev, must_change_password: false } : prev);
     }
 

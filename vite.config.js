@@ -6,6 +6,5 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    allowedHosts: ['shad-untrepanned-lustrously.ngrok-free.dev'],
   },
 })

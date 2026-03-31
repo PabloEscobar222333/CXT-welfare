@@ -42,15 +42,15 @@ function fmtDate(iso) {
 }
 
 // ─── Audit log helper ─────────────────────────────────────────────────────────
+// Routes through the log-audit Edge Function so the real client IP is captured.
 async function logAudit(action, table, rowId, details, userId) {
   try {
-    const { supabase } = await import('../../services/api');
-    await supabase.from('audit_logs').insert({
-      user_id:     userId,
-      action_type: action,
-      description: JSON.stringify({ table, row_id: rowId, ...details }),
-      ip_address:  '127.0.0.1',
-    });
+    const { auditService } = await import('../../services/api');
+    await auditService.logAction(
+      userId,
+      action,
+      JSON.stringify({ table, row_id: rowId, ...details }),
+    );
   } catch (e) {
     console.warn('Audit log failed:', e);
   }
@@ -223,24 +223,24 @@ function MonthlyEntry({ currentUser }) {
         }));
 
       if (inserts.length > 0) {
-        const { supabaseAdmin } = await import('../../services/api');
-        const { error: insErr } = await supabaseAdmin
+        const { supabase } = await import('../../services/api');
+        const { error: insErr } = await supabase
           .from('contributions')
           .upsert(inserts, { onConflict: 'member_id,month,year' });
         if (insErr) console.warn('Insert new rows error:', insErr);
       }
 
       // 4b) Update expected_amount for unpaid/partial rows that differ from the platform setting.
-      //     Uses supabaseAdmin to bypass RLS. Paid rows are left unchanged.
+      //     Paid rows are left unchanged.
       const toUpdate = (existing || []).filter(
         c => (c.status === 'unpaid' || c.status === 'partial') &&
              Number(c.expected_amount) !== defaultExpected
       );
       if (toUpdate.length > 0) {
-        const { supabaseAdmin } = await import('../../services/api');
+        const { supabase } = await import('../../services/api');
         await Promise.all(
           toUpdate.map(c =>
-            supabaseAdmin
+            supabase
               .from('contributions')
               .update({ expected_amount: defaultExpected, updated_at: new Date().toISOString() })
               .eq('member_id', c.member_id)
@@ -297,9 +297,8 @@ function MonthlyEntry({ currentUser }) {
         updated_at:      new Date().toISOString(),
       };
 
-      const { data: saved, error } = await import('../../services/api').then(api =>
-        api.supabaseAdmin.from('contributions').upsert(payload, { onConflict: 'member_id,month,year' }).select().single()
-      );
+      const { contributionService } = await import('../../services/api');
+      const { data: saved, error } = await contributionService.upsertContribution(payload);
       if (error) throw error;
 
       // Update local state — keep paid_amount consistent
