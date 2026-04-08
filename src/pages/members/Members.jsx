@@ -110,7 +110,7 @@ function SkeletonRow() {
 }
 
 // ─── Add / Edit Member Modal ──────────────────────────────────────────────────
-function MemberFormModal({ mode, member, onClose, onSave, currentUserId }) {
+function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuperAdmin }) {
   const [form, setForm] = useState({
     name:       member?.full_name || member?.name || '',
     memberId:   member?.member_id || member?.memberId || '',
@@ -219,6 +219,7 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId }) {
             <option value="secretary">Secretary</option>
             <option value="chairman">Chairman</option>
             <option value="treasurer">Treasurer</option>
+            {isSuperAdmin && <option value="super_admin">Super Admin</option>}
           </select>
         </Field>
       </div>
@@ -605,11 +606,11 @@ export function Members() {
       {/* ── Modals ── */}
 
       {modal === 'add' && (
-        <MemberFormModal mode="add" onClose={closeModal} onSave={handleAdd} currentUserId={user?.id} />
+        <MemberFormModal mode="add" onClose={closeModal} onSave={handleAdd} currentUserId={user?.id} isSuperAdmin={isSuperAdmin} />
       )}
 
       {modal === 'edit' && active && (
-        <MemberFormModal mode="edit" member={active} onClose={closeModal} onSave={handleEdit} currentUserId={user?.id} />
+        <MemberFormModal mode="edit" member={active} onClose={closeModal} onSave={handleEdit} currentUserId={user?.id} isSuperAdmin={isSuperAdmin} />
       )}
 
       {modal === 'disable' && active && (

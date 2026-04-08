@@ -56,7 +56,7 @@ serve(async (req: Request) => {
       });
     }
 
-    const allowedRoles = ['super_admin', 'admin', 'secretary'];
+    const allowedRoles = ['super_admin', 'admin', 'secretary', 'treasurer'];
     if (!allowedRoles.includes(callerProfile.role) || callerProfile.status !== 'active') {
       return new Response(JSON.stringify({ error: 'Forbidden: insufficient role' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
