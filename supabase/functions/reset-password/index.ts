@@ -63,7 +63,11 @@ serve(async (req: Request) => {
       });
     }
 
-    // ── 4. Generate the one-time recovery link ───────────────────────────────
+    // ── 4. Generate the recovery token (does NOT send email by itself) ────────
+    // admin.auth.admin.generateLink only creates the signed token — it never
+    // dispatches an email. We extract the hashed_token and build our own
+    // direct link so the member lands on /reset-password without needing
+    // Supabase's redirect URL allowlist.
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: 'recovery',
       email,
@@ -71,18 +75,45 @@ serve(async (req: Request) => {
     });
     if (linkError) throw linkError;
 
-    const action_link =
-      linkData?.properties?.action_link || linkData?.action_link || null;
+    // Build a direct app link using the hashed_token — bypasses Supabase's
+    // redirect validator entirely so it always points to our /reset-password.
+    const hashed_token = linkData?.properties?.hashed_token;
+    const action_link  = hashed_token
+      ? `${redirectTo}#access_token=${hashed_token}&token_type=bearer&type=recovery`
+      : (linkData?.properties?.action_link || linkData?.action_link || null);
 
-    // ── 5. Send the reset email via admin client (bypasses rate limit) ───────
+    // ── 5. Trigger the recovery email via the Supabase Auth REST API ──────────
+    // generateLink alone does NOT send any email. The /auth/v1/recover endpoint
+    // actually dispatches the Supabase recovery email (uses the SMTP config in
+    // your project settings). If SMTP is not configured the email won't arrive
+    // but the link above can still be copied and shared manually.
     let email_sent  = false;
-    let email_error = null;
+    let email_error: string | null = null;
     try {
-      const { error: emailError } = await admin.auth.resetPasswordForEmail(email, { redirectTo });
-      email_sent  = !emailError;
-      email_error = emailError?.message ?? null;
-    } catch (err: unknown) {
-      email_error = err instanceof Error ? err.message : String(err);
+      const recoverUrl = `${supabaseUrl}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectTo)}`;
+      const recoverResp = await fetch(
+        recoverUrl,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'apikey':        serviceRoleKey,
+            'Authorization': `Bearer ${serviceRoleKey}`,
+          },
+          body: JSON.stringify({
+            email,
+            gotrue_meta_security: {},
+          }),
+        },
+      );
+      // /auth/v1/recover returns 200 (or 204) on success
+      email_sent  = recoverResp.ok;
+      if (!recoverResp.ok) {
+        const body = await recoverResp.text().catch(() => '');
+        email_error = body || `HTTP ${recoverResp.status}`;
+      }
+    } catch (emailErr: unknown) {
+      email_error = emailErr instanceof Error ? emailErr.message : String(emailErr);
     }
 
     // ── 6. Audit log ─────────────────────────────────────────────────────────
