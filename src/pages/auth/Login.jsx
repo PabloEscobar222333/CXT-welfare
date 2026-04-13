@@ -58,10 +58,7 @@ export function Login() {
             />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <label htmlFor="password" className="text-sm font-medium text-slate-700">Password</label>
-                <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-mid)' }}>Forgotten your password? Contact your administrator.</span>
-              </div>
+              <label htmlFor="password" style={{ fontSize: '14px', fontWeight: '500', color: 'var(--text-dark)' }}>Password</label>
               <div style={{ position: 'relative' }}>
                 <Input 
                   type={showPassword ? 'text' : 'password'} 
@@ -96,9 +93,14 @@ export function Login() {
             </Button>
           </form>
 
-          <p style={{ marginTop: '2rem', fontSize: '13px', color: 'var(--text-mid)', textAlign: 'center' }}>
-            Don't have an account? Contact your administrator.
-          </p>
+          <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-light)' }}>
+              Forgotten your password? Contact your administrator.
+            </p>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-mid)' }}>
+              Don't have an account? Contact your administrator.
+            </p>
+          </div>
         </div>
         
         <div style={{ marginTop: 'auto' }}></div>
