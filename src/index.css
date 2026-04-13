@@ -123,3 +123,8 @@ a:hover {
 .input-field::placeholder {
   color: var(--text-light);
 }
+
+/* Button spinner animation */
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}

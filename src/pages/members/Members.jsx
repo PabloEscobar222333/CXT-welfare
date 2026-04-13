@@ -69,6 +69,7 @@ function Modal({ title, onClose, children, footer, maxWidth = '520px' }) {
             padding: '16px 24px', borderTop: '1px solid var(--border-color)',
             backgroundColor: 'var(--pale-blue)', display: 'flex',
             justifyContent: 'flex-end', gap: '12px', flexShrink: 0,
+            flexWrap: 'wrap',
           }}>
             {footer}
           </div>
@@ -132,7 +133,7 @@ function TempPasswordModal({ password, userName, onDone }) {
       onClose={onDone}
       maxWidth="500px"
       footer={
-        <Button onClick={onDone}>Done</Button>
+        <Button onClick={onDone} style={{ minWidth: '100px' }}>Done</Button>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -266,7 +267,7 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
     setRolePromptVisible(false);
   };
 
-  const isSaveDisabled = saving || submitting || emailChecking || !!errors.email;
+  const isSaveDisabled = saving || submitting || emailChecking || (errors.email ? true : false);
 
   const selectStyle = {
     height: '40px', border: `1px solid var(--border-color)`, borderRadius: '8px',
@@ -280,8 +281,8 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button onClick={handleSave} loading={saving || submitting} disabled={isSaveDisabled}>
+          <Button variant="secondary" onClick={onClose} disabled={submitting} style={{ minWidth: '90px' }}>Cancel</Button>
+          <Button onClick={handleSave} loading={saving || submitting} disabled={isSaveDisabled} style={{ minWidth: '140px' }}>
             {mode === 'add' ? 'Create Account' : 'Save Changes'}
           </Button>
         </>
@@ -348,11 +349,11 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
 // ─── Confirm Action Modal (Disable / Enable / Reset PW) ──────────────────────
 function ConfirmModal({ title, body, confirmLabel, confirmVariant = 'primary', onClose, onConfirm, loading }) {
   return (
-    <Modal title={title} onClose={onClose} maxWidth="440px"
+    <Modal title={title} onClose={onClose} maxWidth="480px"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>{confirmLabel}</Button>
+          <Button variant="secondary" onClick={onClose} style={{ minWidth: '90px' }}>Cancel</Button>
+          <Button variant={confirmVariant} onClick={onConfirm} loading={loading} style={{ minWidth: '140px' }}>{confirmLabel}</Button>
         </>
       }
     >
@@ -461,7 +462,8 @@ export function Members() {
       }
     } catch (err) {
       console.error('Create member error:', err);
-      addToast('Failed to create account. Please try again.', 'error');
+      const msg = err?.message || 'Unknown error';
+      addToast(`Failed to create account: ${msg}`, 'error');
     }
     setActing(false);
   };
@@ -529,7 +531,7 @@ export function Members() {
       const { data, error } = await profileService.resetPassword(active.id);
       if (error) throw error;
       const pwd = data?.tempPassword || data?.temp_password;
-      if (!pwd) throw new Error('No temporary password returned by server.');
+      if (!pwd) throw new Error('No temporary password returned by the server. Please ensure the reset-password edge function is deployed.');
       logAudit(
         'Temporary Password Reset',
         `Temporary password reset for ${active.full_name || active.name} by ${user?.full_name || user?.name || 'Super Admin'}.`
@@ -541,7 +543,8 @@ export function Members() {
       setModal('temp_password');
     } catch (err) {
       console.error('Password reset error:', err);
-      addToast(`Failed to reset password: ${err.message || 'Unknown error'}`, 'error');
+      const msg = err?.message || 'Unknown error';
+      addToast(`Failed to reset password: ${msg}`, 'error');
     }
     setActing(false);
   };
@@ -615,7 +618,7 @@ export function Members() {
       {/* ── Members Table ── */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--light-blue)', color: 'var(--primary-dark)', fontSize: '12px', textTransform: 'uppercase' }}>
                 {['Member ID', 'Full Name', 'Role', 'Email', 'Phone', 'Status', 'Date Added', 'Actions'].map(h => (

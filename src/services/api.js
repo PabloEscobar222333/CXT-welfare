@@ -12,14 +12,23 @@ export const supabase = createClient(supabaseUrl, supabaseKey);
 // relying on supabase.functions.invoke, which has been observed to silently
 // fail to attach the JWT, causing 401 "Invalid JWT" errors from the edge runtime.
 async function callEdgeFunction(name, body) {
-  // Step 1: Get the current session.
-  let { data: sessionData } = await supabase.auth.getSession();
-  let token = sessionData?.session?.access_token;
+  // Step 1: Always try to refresh the session first to ensure a fresh token.
+  // This prevents "Invalid JWT" errors caused by stale/expired tokens.
+  let token = null;
 
-  // Step 2: If no token or session is close to expiry, try a proactive refresh.
+  try {
+    const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+    if (!refreshErr && refreshData?.session?.access_token) {
+      token = refreshData.session.access_token;
+    }
+  } catch (_) {
+    // Refresh failed — fall through to getSession.
+  }
+
+  // Step 2: If refresh didn't yield a token, fall back to getSession.
   if (!token) {
-    const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: null }));
-    token = refreshData?.session?.access_token;
+    const { data: sessionData } = await supabase.auth.getSession();
+    token = sessionData?.session?.access_token;
   }
 
   if (!token) {
@@ -49,7 +58,9 @@ async function callEdgeFunction(name, body) {
   }
 
   if (!response.ok) {
-    throw new Error(json?.error || json?.message || `Edge function ${name} failed with status ${response.status}.`);
+    const errMsg = json?.error || json?.message || `Edge function ${name} failed with status ${response.status}.`;
+    console.error(`[callEdgeFunction] ${name} failed:`, errMsg, json);
+    throw new Error(errMsg);
   }
 
   return json;
