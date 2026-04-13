@@ -1,65 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { auditService } from '../../services/api';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { supabase } from '../../services/api';
 
+/**
+ * Forced password-change screen.
+ *
+ * This page is shown when a user logs in with a temporary password
+ * (must_change_password = true). It is non-escapable — no back button,
+ * no navigation, no skip. The user MUST set a new permanent password
+ * before accessing any part of the platform.
+ *
+ * There is NO recovery-link / email-based flow. All password resets
+ * are admin-mediated (see Members page).
+ */
 export function ResetPassword() {
-  const [password, setPassword] = useState('');
+  const [password, setPassword]               = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [submitting, setSubmitting]           = useState(false);
+  const [error, setError]                     = useState('');
 
-  // recoveryMode = true  → user arrived via a password-reset email link
-  //                false → first-login forced change (already signed in)
-  const [recoveryMode, setRecoveryMode] = useState(false);
-  const [tokenReady, setTokenReady] = useState(false);
-
-  const { user, updatePassword } = useAuth();
+  const { user, updatePassword, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Detect recovery mode via two methods (both are needed):
-  //
-  // 1. URL hash check — reliable when App.jsx routed the user here with the
-  //    #access_token=...&type=recovery hash. The Supabase client may have
-  //    already processed the hash before this component mounted, so the
-  //    PASSWORD_RECOVERY event won't fire again — the hash check catches it.
-  //
-  // 2. onAuthStateChange — catches the event when the user lands directly on
-  //    /reset-password (e.g. from the admin-generated shareable link).
-  useEffect(() => {
-    // Method 1: check URL hash immediately on mount
-    const hash = window.location.hash;
-    if (hash && hash.includes('type=recovery')) {
-      setRecoveryMode(true);
-      setTokenReady(true);
-    }
+  // ── Route protection ──────────────────────────────────────────────────────
+  // Must be logged in and must_change_password must be true.
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.must_change_password) return <Navigate to="/dashboard" replace />;
 
-    // Method 2: event listener for direct link arrivals
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setRecoveryMode(true);
-        setTokenReady(true);
-      }
-    });
-
-    // If user is already logged in with must_change_password, mark ready
-    if (user && user.must_change_password) {
-      setTokenReady(true);
-    }
-
-    return () => subscription.unsubscribe();
-  }, [user]);
-
-  // ── Route protection ─────────────────────────────────────────────────────────
-  // Recovery mode: stay on this page even if user is not in state yet
-  // Forced-change mode: must be logged in with the flag set
-  if (!recoveryMode) {
-    if (!user) return <Navigate to="/login" replace />;
-    if (!user.must_change_password) return <Navigate to="/dashboard" replace />;
-  }
-
+  // ── Password strength requirements ────────────────────────────────────────
   const reqs = {
     length:  password.length >= 10,
     upper:   /[A-Z]/.test(password),
@@ -81,7 +52,22 @@ export function ResetPassword() {
 
     try {
       await updatePassword(password);
-      navigate('/dashboard', { replace: true });
+
+      // Audit log — record the password change
+      try {
+        await auditService.logAction(
+          user.id,
+          'Password Changed',
+          'Password changed by user after first login / admin reset'
+        );
+      } catch (auditErr) {
+        console.warn('Audit log failed (non-blocking):', auditErr);
+      }
+
+      // Sign out so the user logs in fresh with their new password.
+      // This invalidates the old session and ensures a clean state.
+      await signOut();
+      navigate('/login', { replace: true });
     } catch (err) {
       console.error('Password update failed:', err);
       setError(err.message || 'Failed to update password. Please try again.');
@@ -90,23 +76,12 @@ export function ResetPassword() {
     }
   };
 
-  // Show a spinner while waiting for the Supabase recovery token
-  if (recoveryMode && !tokenReady) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: 'var(--text-mid)' }}>Verifying reset link…</p>
-      </div>
-    );
-  }
-
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
       <div style={{ maxWidth: '440px', width: '100%', backgroundColor: 'var(--white)', padding: '2.5rem', borderRadius: '12px', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-color)' }}>
         <h1 style={{ fontSize: '24px', marginBottom: '8px' }}>Set your new password</h1>
         <p style={{ color: 'var(--text-mid)', fontSize: '14px', marginBottom: '24px', lineHeight: '1.5' }}>
-          {recoveryMode
-            ? 'Enter a new password for your account below.'
-            : 'Your account was created with a temporary password. You must set a new password before you can access the platform.'}
+          Your account was created with a temporary password. You must set a new password before you can access the platform.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

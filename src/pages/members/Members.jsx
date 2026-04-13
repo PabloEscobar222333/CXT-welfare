@@ -7,7 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
-import { Edit2, Ban, CheckCircle, Key, Search, X, UserPlus } from 'lucide-react';
+import { Edit2, Ban, CheckCircle, Key, Search, X, UserPlus, Copy } from 'lucide-react';
 
 // ─── Allowed roles for this page ─────────────────────────────────────────────
 const ALLOWED_ROLES = ['super_admin', 'treasurer'];
@@ -109,8 +109,93 @@ function SkeletonRow() {
   );
 }
 
+// ─── Temporary Password Modal ─────────────────────────────────────────────────
+// Reusable for both add-member and reset-password flows.
+function TempPasswordModal({ password, userName, onDone }) {
+  const { addToast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      addToast('Temporary password copied to clipboard!', 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      addToast('Failed to copy. Please select and copy manually.', 'error');
+    }
+  };
+
+  return (
+    <Modal
+      title="Account Created Successfully"
+      onClose={onDone}
+      maxWidth="500px"
+      footer={
+        <Button onClick={onDone}>Done</Button>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Success banner */}
+        <div style={{ backgroundColor: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '8px', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0 }}>✅</span>
+          <p style={{ margin: 0, fontSize: '13px', color: '#166534', lineHeight: '1.6' }}>
+            {userName
+              ? <>Account for <strong>{userName}</strong> has been created successfully.</>
+              : 'Account created successfully.'}
+          </p>
+        </div>
+
+        {/* Instruction */}
+        <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-mid)', lineHeight: '1.6' }}>
+          Share this temporary password with the user. <strong>It will not be shown again.</strong>
+        </p>
+
+        {/* Password display */}
+        <div style={{ position: 'relative' }}>
+          <div style={{
+            backgroundColor: '#1E293B', color: '#F1F5F9', fontFamily: "'Courier New', Courier, monospace",
+            fontSize: '18px', fontWeight: '700', letterSpacing: '2px', padding: '16px 50px 16px 20px',
+            borderRadius: '8px', textAlign: 'center', userSelect: 'all', wordBreak: 'break-all',
+          }}>
+            {password}
+          </div>
+          <button
+            onClick={handleCopy}
+            title="Copy to clipboard"
+            style={{
+              position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', cursor: 'pointer', color: copied ? '#86EFAC' : '#94A3B8',
+              padding: '6px', borderRadius: '4px', lineHeight: 0,
+              transition: 'color 0.2s',
+            }}
+          >
+            <Copy size={20} />
+          </button>
+        </div>
+
+        {/* Copy button (large) */}
+        <Button variant="secondary" onClick={handleCopy} style={{ width: '100%' }}>
+          <Copy size={16} style={{ marginRight: '8px' }} />
+          {copied ? 'Copied!' : 'Copy to Clipboard'}
+        </Button>
+
+        {/* Warning */}
+        <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+          <span style={{ fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>⚠️</span>
+          <p style={{ margin: 0, fontSize: '12px', color: '#92400E', lineHeight: '1.6' }}>
+            The user will be required to set a new permanent password on their next login.
+            The temporary password cannot be retrieved after dismissing this dialog.
+            The system does not send any email — distributing this password is your responsibility.
+          </p>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Add / Edit Member Modal ──────────────────────────────────────────────────
-function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuperAdmin }) {
+function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuperAdmin, submitting }) {
   const [form, setForm] = useState({
     name:       member?.full_name || member?.name || '',
     memberId:   member?.member_id || member?.memberId || '',
@@ -181,7 +266,7 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
     setRolePromptVisible(false);
   };
 
-  const isSaveDisabled = saving || emailChecking || !!errors.email;
+  const isSaveDisabled = saving || submitting || emailChecking || !!errors.email;
 
   const selectStyle = {
     height: '40px', border: `1px solid var(--border-color)`, borderRadius: '8px',
@@ -195,8 +280,8 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
       onClose={onClose}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} loading={saving} disabled={isSaveDisabled}>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button onClick={handleSave} loading={saving || submitting} disabled={isSaveDisabled}>
             {mode === 'add' ? 'Create Account' : 'Save Changes'}
           </Button>
         </>
@@ -310,12 +395,11 @@ export function Members() {
   const [statusFilter, setStatusFilter] = useState('Active');
 
   // ── Modal state ─────────────────────────────────────────────────────────────
-  const [modal,      setModal]      = useState(null);
-  const [active,     setActive]     = useState(null);
-  const [acting,     setActing]     = useState(false);
-  const [resetLink,  setResetLink]  = useState('');
-  const [emailSent,  setEmailSent]  = useState(false);
-  const [emailError, setEmailError] = useState('');  // actual Supabase error when email fails
+  const [modal,        setModal]        = useState(null);
+  const [active,       setActive]       = useState(null);
+  const [acting,       setActing]       = useState(false);
+  const [tempPassword, setTempPassword] = useState('');
+  const [tempUserName, setTempUserName] = useState('');
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   const fetchMembers = useCallback(async () => {
@@ -360,11 +444,21 @@ export function Members() {
   const handleAdd = async (form) => {
     setActing(true);
     try {
-      const profile = await profileService.createAuthAndProfile(form, user?.id);
+      const result = await profileService.createAuthAndProfile(form, user?.id);
       logAudit('Member Created', `Created profile for ${form.name} (${form.memberId}) with role ${form.role}.`);
-      addToast('Account created. Temporary credentials will be sent to the user.', 'success');
-      closeModal();
       await fetchMembers();
+
+      // Show the temporary password modal
+      const returnedPassword = result?.tempPassword || result?.temp_password;
+      if (returnedPassword) {
+        setTempPassword(returnedPassword);
+        setTempUserName(form.name);
+        setModal('temp_password');
+        setActive(null);
+      } else {
+        addToast('Account created, but no temporary password was returned. The user may need a password reset.', 'warning');
+        closeModal();
+      }
     } catch (err) {
       console.error('Create member error:', err);
       addToast('Failed to create account. Please try again.', 'error');
@@ -428,26 +522,26 @@ export function Members() {
     setActing(false);
   };
 
-  // ── Reset password — generates link + attempts email delivery ──────────────
+  // ── Reset password — generates a new temporary password ────────────────────
   const handleReset = async () => {
     setActing(true);
     try {
-      const { data, error } = await profileService.resetPassword(active.email);
+      const { data, error } = await profileService.resetPassword(active.id);
       if (error) throw error;
-      const link = data?.action_link;
-      if (!link) throw new Error('No recovery link returned by server.');
-      const sent = !!data?.email_sent;
+      const pwd = data?.tempPassword || data?.temp_password;
+      if (!pwd) throw new Error('No temporary password returned by server.');
       logAudit(
-        'Password Reset Initiated',
-        `Recovery link generated for ${active.full_name || active.name} (${active.email}). Email dispatched: ${sent ? 'yes' : 'no'}.`
+        'Temporary Password Reset',
+        `Temporary password reset for ${active.full_name || active.name} by ${user?.full_name || user?.name || 'Super Admin'}.`
       );
-      setEmailSent(sent);
-      setEmailError(data?.email_error || '');
-      setResetLink(link);
-      setModal('reset_link');
+
+      // Show the temporary password modal
+      setTempPassword(pwd);
+      setTempUserName(active.full_name || active.name);
+      setModal('temp_password');
     } catch (err) {
       console.error('Password reset error:', err);
-      addToast(`Failed to generate reset link: ${err.message || 'Unknown error'}`, 'error');
+      addToast(`Failed to reset password: ${err.message || 'Unknown error'}`, 'error');
     }
     setActing(false);
   };
@@ -606,11 +700,11 @@ export function Members() {
       {/* ── Modals ── */}
 
       {modal === 'add' && (
-        <MemberFormModal mode="add" onClose={closeModal} onSave={handleAdd} currentUserId={user?.id} isSuperAdmin={isSuperAdmin} />
+        <MemberFormModal mode="add" onClose={closeModal} onSave={handleAdd} currentUserId={user?.id} isSuperAdmin={isSuperAdmin} submitting={acting} />
       )}
 
       {modal === 'edit' && active && (
-        <MemberFormModal mode="edit" member={active} onClose={closeModal} onSave={handleEdit} currentUserId={user?.id} isSuperAdmin={isSuperAdmin} />
+        <MemberFormModal mode="edit" member={active} onClose={closeModal} onSave={handleEdit} currentUserId={user?.id} isSuperAdmin={isSuperAdmin} submitting={acting} />
       )}
 
       {modal === 'disable' && active && (
@@ -640,8 +734,8 @@ export function Members() {
       {modal === 'reset' && active && (
         <ConfirmModal
           title="Reset Password"
-          body={`A password reset link will be generated for ${active.full_name || active.name} (${active.email}). We will also attempt to send it to their email address. If the email cannot be delivered, you will be able to copy and share the link manually.`}
-          confirmLabel="Generate & Send Reset Link"
+          body={`This will generate a new temporary password for ${active.full_name || active.name}. They will be required to set a new password on their next login. Continue?`}
+          confirmLabel="Generate Temporary Password"
           confirmVariant="primary"
           onClose={closeModal}
           onConfirm={handleReset}
@@ -649,88 +743,12 @@ export function Members() {
         />
       )}
 
-      {modal === 'reset_link' && resetLink && (
-        <Modal
-          title="Password Reset Link Ready"
-          onClose={() => { closeModal(); setResetLink(''); setEmailSent(false); }}
-          maxWidth="580px"
-          footer={
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => { closeModal(); setResetLink(''); setEmailSent(false); }}
-              >
-                Done
-              </Button>
-              <Button
-                onClick={() => {
-                  navigator.clipboard.writeText(resetLink);
-                  addToast('Reset link copied to clipboard!', 'success');
-                }}
-              >
-                Copy Link
-              </Button>
-            </>
-          }
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
-            {/* ── Email sent / failed banner ── */}
-            {emailSent ? (
-              <div style={{ backgroundColor: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0 }}>✅</span>
-                <p style={{ margin: 0, fontSize: '13px', color: '#166534', lineHeight: '1.6' }}>
-                  A password reset email has been sent to&nbsp;
-                  <strong>{active?.email}</strong>.
-                  The link below is also available if the member does not receive the email.
-                </p>
-              </div>
-            ) : (
-              <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0 }}>⚠️</span>
-                <div style={{ margin: 0, fontSize: '13px', color: '#92400E', lineHeight: '1.6' }}>
-                  <p style={{ margin: '0 0 4px 0' }}>
-                    Email could not be sent automatically to&nbsp;<strong>{active?.email}</strong>.
-                    Please <strong>copy the link below</strong> and share it directly.
-                  </p>
-                  {emailError && (
-                    <p style={{ margin: 0, fontSize: '11px', color: '#78350F', fontFamily: 'monospace', backgroundColor: '#FEF3C7', padding: '4px 8px', borderRadius: '4px' }}>
-                      Reason: {emailError}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── Copyable link ── */}
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-mid)', display: 'block', marginBottom: '6px' }}>
-                {emailSent ? 'Backup Reset Link' : 'Reset Link (share this with the member)'}
-              </label>
-              <div
-                style={{
-                  backgroundColor: 'var(--pale-blue)', border: '1px solid var(--border-color)',
-                  borderRadius: '8px', padding: '10px 14px', fontSize: '12px',
-                  wordBreak: 'break-all', color: 'var(--primary-mid)', lineHeight: '1.7',
-                  userSelect: 'all', cursor: 'text',
-                }}
-                title="Click to select all"
-                onClick={e => {
-                  const range = document.createRange();
-                  range.selectNodeContents(e.currentTarget);
-                  window.getSelection().removeAllRanges();
-                  window.getSelection().addRange(range);
-                }}
-              >
-                {resetLink}
-              </div>
-            </div>
-
-            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-light)', lineHeight: '1.5' }}>
-              ⚠️ This link is valid for <strong>one use only</strong> and expires after the member sets their password.
-            </p>
-          </div>
-        </Modal>
+      {modal === 'temp_password' && tempPassword && (
+        <TempPasswordModal
+          password={tempPassword}
+          userName={tempUserName}
+          onDone={() => { setModal(null); setActive(null); setTempPassword(''); setTempUserName(''); }}
+        />
       )}
     </div>
   );

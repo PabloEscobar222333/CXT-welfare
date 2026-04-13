@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -60,7 +60,7 @@ export function Login() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <label htmlFor="password" className="text-sm font-medium text-slate-700">Password</label>
-                <Link to="/forgot-password" style={{ fontSize: '13px', fontWeight: '500', color: '#2563eb' }}>Forgotten password?</Link>
+                <span style={{ fontSize: '13px', fontWeight: '500', color: 'var(--text-mid)' }}>Forgotten your password? Contact your administrator.</span>
               </div>
               <div style={{ position: 'relative' }}>
                 <Input 

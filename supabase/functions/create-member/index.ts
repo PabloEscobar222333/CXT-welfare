@@ -66,10 +66,12 @@ serve(async (req: Request) => {
     // ── 3. Parse request body ────────────────────────────────────────────────
     const uiData = await req.json();
 
-    // ── 4. Generate a cryptographically secure temp password ─────────────────
-    const arr = new Uint8Array(16);
+    // ── 4. Generate a cryptographically secure temp password (12 chars) ─────
+    // Character set excludes ambiguous chars (I, l, O, 0, 1) for readability.
+    const pwChars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
+    const arr = new Uint8Array(12);
     crypto.getRandomValues(arr);
-    const tempPassword = btoa(String.fromCharCode(...arr)).slice(0, 16) + '!A9';
+    const tempPassword = Array.from(arr).map(b => pwChars[b % pwChars.length]).join('');
 
     // ── 5. Create the auth user ──────────────────────────────────────────────
     const { data: adminData, error: adminError } = await admin.auth.admin.createUser({
@@ -107,7 +109,7 @@ serve(async (req: Request) => {
       ip_address:  clientIp,
     });
 
-    return new Response(JSON.stringify({ data }), {
+    return new Response(JSON.stringify({ data, tempPassword }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

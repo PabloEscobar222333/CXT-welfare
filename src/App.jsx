@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './pages/auth/Login';
 import { ResetPassword } from './pages/auth/ResetPassword';
-import { ForgotPassword } from './pages/auth/ForgotPassword';
+
 import { DataProvider } from './context/DataContext';
 import { ToastProvider } from './context/ToastContext';
 import { SettingsProvider } from './context/SettingsContext';
@@ -65,17 +65,7 @@ const RoleProtectedRoute = ({ children, allowedRoles }) => {
   return <ProtectedRoute>{children}</ProtectedRoute>;
 };
 
-// Handles the root path intelligently:
-// — If Supabase drops a recovery token hash here (from a password-reset email),
-//   forward the user to /reset-password WITH the hash so Supabase can exchange it.
-// — Otherwise, redirect normally to /dashboard.
-const RootRedirect = () => {
-  const hash = window.location.hash;
-  if (hash && hash.includes('type=recovery')) {
-    return <Navigate to={`/reset-password${hash}`} replace />;
-  }
-  return <Navigate to="/dashboard" replace />;
-};
+
 
 export default function App() {
   return (
@@ -86,7 +76,7 @@ export default function App() {
           <ToastProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+
               <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Protected Routes */}
@@ -101,8 +91,8 @@ export default function App() {
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/my-account" element={<ProtectedRoute><Placeholder title="My Account" /></ProtectedRoute>} />
 
-              {/* Fallback — root uses RootRedirect to handle Supabase recovery hashes */}
-              <Route path="/" element={<RootRedirect />} />
+              {/* Fallback */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </ToastProvider>

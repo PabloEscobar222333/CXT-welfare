@@ -68,12 +68,7 @@ export function AuthProvider({ children }) {
     return userObj?.must_change_password === true;
   };
 
-  const sendPasswordReset = async (email) => {
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    return true;
-  };
+
 
   // Update the authenticated user's password in Supabase Auth and clear the
   // must_change_password flag via the regular anon client (RLS allows own-row updates).
@@ -100,7 +95,6 @@ export function AuthProvider({ children }) {
       signIn,
       signOut,
       checkFirstLogin,
-      sendPasswordReset,
       updatePassword,
       loading
     }}>

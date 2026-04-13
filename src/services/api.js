@@ -7,20 +7,51 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Admin/service-role operations are handled by Supabase Edge Functions (server-side).
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ─── Helper: call an Edge Function with the current user's JWT ────────────────
+// ─── Helper: call an Edge Function with an explicit Authorization header ──────
+// We explicitly get the session token and send it as a raw fetch instead of
+// relying on supabase.functions.invoke, which has been observed to silently
+// fail to attach the JWT, causing 401 "Invalid JWT" errors from the edge runtime.
 async function callEdgeFunction(name, body) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  const res = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+  // Step 1: Get the current session.
+  let { data: sessionData } = await supabase.auth.getSession();
+  let token = sessionData?.session?.access_token;
+
+  // Step 2: If no token or session is close to expiry, try a proactive refresh.
+  if (!token) {
+    const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: null }));
+    token = refreshData?.session?.access_token;
+  }
+
+  if (!token) {
+    throw new Error('No active session. Please log in again.');
+  }
+
+  // Step 3: Build the Edge Function URL from the Supabase project URL.
+  const fnUrl = `${supabaseUrl}/functions/v1/${name}`;
+
+  // Step 4: Fire the request with explicit headers so the JWT is guaranteed to reach the edge function.
+  const response = await fetch(fnUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'Authorization': `Bearer ${token}`,
+      'apikey': supabaseKey,
     },
     body: JSON.stringify(body),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json?.error || `Edge function ${name} failed (${res.status})`);
+
+  // Step 5: Parse the JSON response.
+  let json;
+  try {
+    json = await response.json();
+  } catch (_) {
+    throw new Error(`Edge function ${name} returned a non-JSON response (status ${response.status}).`);
+  }
+
+  if (!response.ok) {
+    throw new Error(json?.error || json?.message || `Edge function ${name} failed with status ${response.status}.`);
+  }
+
   return json;
 }
 
@@ -394,10 +425,11 @@ export const profileService = {
     return 'WEL-001';
   },
 
-  // Delegates to the create-member Edge Function (service role never leaves server)
+  // Delegates to the create-member Edge Function (service role never leaves server).
+  // Returns { data, tempPassword } — tempPassword is shown once to the admin.
   async createAuthAndProfile(uiData) {
     const result = await callEdgeFunction('create-member', uiData);
-    return result.data;
+    return result; // { data: profileRow, tempPassword: string }
   },
 
   async updateProfile(id, uiData) {
@@ -414,11 +446,11 @@ export const profileService = {
     return { error };
   },
 
-  // Delegates to the reset-password Edge Function (generateLink is admin-only)
-  async resetPassword(email) {
-    const redirectTo = `${window.location.origin}/reset-password`;
+  // Delegates to the reset-password Edge Function (super_admin only).
+  // Generates a new temporary password server-side and returns it once.
+  async resetPassword(userId) {
     try {
-      const result = await callEdgeFunction('reset-password', { email, redirectTo });
+      const result = await callEdgeFunction('reset-password', { userId });
       return { data: result.data, error: null };
     } catch (err) {
       return { data: null, error: err };
