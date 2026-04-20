@@ -16,7 +16,16 @@ function Modal({ title, onClose, children, footer }) {
       <div style={{ backgroundColor: 'var(--white)', borderRadius: '16px', width: '100%', maxWidth: '500px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ fontSize: '18px', margin: 0 }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mid)' }}><X size={20} /></button>
+          <button
+            onClick={onClose}
+            disabled={!onClose}
+            style={{
+              background: 'none', border: 'none',
+              cursor: onClose ? 'pointer' : 'not-allowed',
+              color: 'var(--text-mid)',
+              opacity: onClose ? 1 : 0.3,
+            }}
+          ><X size={20} /></button>
         </div>
         <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>{children}</div>
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--pale-blue)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
@@ -474,11 +483,11 @@ export function Expenses() {
       {isModalOpen && (
         <Modal
           title={editingExpenseId ? 'Edit Expense' : 'Log Expense'}
-          onClose={() => setIsModalOpen(false)}
+          onClose={saving ? undefined : () => setIsModalOpen(false)}
           footer={
             <>
               <Button variant="secondary" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
-              <Button onClick={handleSave} loading={saving}>{editingExpenseId ? 'Save Changes' : 'Save Expense'}</Button>
+              <Button onClick={handleSave} loading={saving} disabled={saving}>{editingExpenseId ? 'Save Changes' : 'Save Expense'}</Button>
             </>
           }
         >
@@ -631,11 +640,11 @@ export function Expenses() {
       {uploadModalOpen && (
         <Modal
           title="Attach Receipt"
-          onClose={() => setUploadModalOpen(false)}
+          onClose={uploading ? undefined : () => setUploadModalOpen(false)}
           footer={
             <>
               <Button variant="secondary" onClick={() => setUploadModalOpen(false)} disabled={uploading}>Cancel</Button>
-              <Button onClick={handleUpload} disabled={!uploadFile} loading={uploading}>Upload Receipt</Button>
+              <Button onClick={handleUpload} disabled={!uploadFile || uploading} loading={uploading}>Upload Receipt</Button>
             </>
           }
         >

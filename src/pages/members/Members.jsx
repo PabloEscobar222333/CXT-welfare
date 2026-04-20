@@ -59,7 +59,16 @@ function Modal({ title, onClose, children, footer, maxWidth = '520px' }) {
           padding: '18px 24px', borderBottom: '1px solid var(--border-color)', flexShrink: 0,
         }}>
           <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: 'var(--primary-dark)' }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-mid)', padding: '4px' }}>
+          <button
+            onClick={onClose}
+            disabled={!onClose}
+            style={{
+              background: 'none', border: 'none',
+              cursor: onClose ? 'pointer' : 'not-allowed',
+              color: 'var(--text-mid)', padding: '4px',
+              opacity: onClose ? 1 : 0.3,
+            }}
+          >
             <X size={20} />
           </button>
         </div>
@@ -333,10 +342,15 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
             Their existing activity will remain recorded under their previous role.
           </p>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <Button onClick={() => { setRolePromptVisible(false); onSave(form); }} style={{ height: '32px', fontSize: '13px', padding: '0 12px' }}>
+            <Button
+              onClick={() => { setRolePromptVisible(false); onSave(form); }}
+              disabled={submitting}
+              loading={submitting}
+              style={{ height: '32px', fontSize: '13px', padding: '0 12px' }}
+            >
               Yes, Change Role
             </Button>
-            <Button variant="secondary" onClick={cancelRoleChange} style={{ height: '32px', fontSize: '13px', padding: '0 12px' }}>
+            <Button variant="secondary" onClick={cancelRoleChange} disabled={submitting} style={{ height: '32px', fontSize: '13px', padding: '0 12px' }}>
               Cancel
             </Button>
           </div>
@@ -349,11 +363,11 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
 // ─── Confirm Action Modal (Disable / Enable / Reset PW) ──────────────────────
 function ConfirmModal({ title, body, confirmLabel, confirmVariant = 'primary', onClose, onConfirm, loading }) {
   return (
-    <Modal title={title} onClose={onClose} maxWidth="480px"
+    <Modal title={title} onClose={loading ? undefined : onClose} maxWidth="480px"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} style={{ minWidth: '90px' }}>Cancel</Button>
-          <Button variant={confirmVariant} onClick={onConfirm} loading={loading} style={{ minWidth: '140px' }}>{confirmLabel}</Button>
+          <Button variant="secondary" onClick={onClose} disabled={loading} style={{ minWidth: '90px' }}>Cancel</Button>
+          <Button variant={confirmVariant} onClick={onConfirm} loading={loading} disabled={loading} style={{ minWidth: '140px' }}>{confirmLabel}</Button>
         </>
       }
     >

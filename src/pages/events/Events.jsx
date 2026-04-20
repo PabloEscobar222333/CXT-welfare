@@ -17,8 +17,20 @@ function Modal({ title, onClose, children, footer }) {
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
       <div style={{ backgroundColor: 'var(--white)', borderRadius: '16px', width: '100%', maxWidth: '520px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ fontSize: '18px', margin: 0 }}>{title}</h2>
+          <button
+            onClick={onClose}
+            disabled={!onClose}
+            style={{
+              background: 'none', border: 'none',
+              cursor: onClose ? 'pointer' : 'not-allowed',
+              color: 'var(--text-mid)',
+              opacity: onClose ? 1 : 0.3,
+            }}
+          >
+            ✕
+          </button>
         </div>
         <div style={{ padding: '24px', maxHeight: '70vh', overflowY: 'auto' }}>{children}</div>
         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--pale-blue)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
@@ -74,6 +86,7 @@ export function Events() {
 
   // ── Delete confirmation ──
   const [deleteTarget, setDeleteTarget] = useState(null); // event object to confirm deletion of
+  const [deleting,     setDeleting]     = useState(false);
 
   // ── Filter logic ──
   const filteredEvents = events.filter(e => {
@@ -134,8 +147,14 @@ export function Events() {
   // ── Delete flow ──
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    await eventService.deleteEvent(deleteTarget.id);
-    refreshData();
+    setDeleting(true);
+    try {
+      await eventService.deleteEvent(deleteTarget.id);
+      refreshData();
+    } catch (err) {
+      console.error('Delete event error:', err);
+    }
+    setDeleting(false);
     setDeleteTarget(null);
   };
 
@@ -449,13 +468,15 @@ export function Events() {
       {deleteTarget && (
         <Modal
           title="Delete Event"
-          onClose={() => setDeleteTarget(null)}
+          onClose={deleting ? undefined : () => setDeleteTarget(null)}
           footer={
             <>
-              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</Button>
               <Button
+                variant="danger"
                 onClick={handleDeleteConfirm}
-                style={{ backgroundColor: 'var(--danger)', borderColor: 'var(--danger)' }}
+                loading={deleting}
+                disabled={deleting}
               >
                 Yes, Delete
               </Button>

@@ -23,7 +23,7 @@ const variantStyles = {
   },
 };
 
-export function Button({ children, variant = 'primary', loading = false, style = {}, ...props }) {
+export function Button({ children, variant = 'primary', loading = false, style = {}, type = 'button', ...props }) {
   const base = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -44,7 +44,7 @@ export function Button({ children, variant = 'primary', loading = false, style =
   };
 
   return (
-    <button style={base} disabled={loading || props.disabled} {...props}>
+    <button type={type} style={base} disabled={loading || props.disabled} {...props}>
       {loading ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
           <span style={{

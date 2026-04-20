@@ -190,8 +190,8 @@ function EditMemberModal({ member, onClose, onSave }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-            <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>
-            <Button type="submit" loading={saving}>
+            <Button variant="secondary" type="button" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button type="submit" loading={saving} disabled={saving}>
               <Save size={16} style={{ marginRight: '8px' }} /> Save Changes
             </Button>
           </div>
