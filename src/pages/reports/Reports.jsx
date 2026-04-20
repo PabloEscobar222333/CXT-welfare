@@ -254,7 +254,7 @@ export function Reports() {
                 display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)',
                 backgroundColor: activeTab === tab.id ? 'var(--primary-dark)' : 'var(--white)',
                 color: activeTab === tab.id ? 'var(--white)' : 'var(--text-dark)',
-                cursor: 'pointer', fontWeight: '500', fontSize: '14px', whiteSpace: 'nowrap', transition: 'all 0.2s'
+                cursor: 'pointer', fontWeight: '500', fontSize: '14px', whiteSpace: 'nowrap', transition: 'background-color 0.2s, color 0.2s, border-color 0.2s'
               }}
             >
               <Icon size={16} /> {tab.label}

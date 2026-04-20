@@ -126,7 +126,7 @@ function ProfileModal({ initialTab, onClose }) {
     <button
       type="button"
       onClick={() => setTab(id)}
-      style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: tab === id ? '700' : '400', color: tab === id ? 'var(--primary-mid)' : 'var(--text-mid)', borderBottom: '2px solid ' + (tab === id ? 'var(--primary-mid)' : 'transparent'), transition: 'all 0.15s' }}
+      style={{ flex: 1, padding: '12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: tab === id ? '700' : '400', color: tab === id ? 'var(--primary-mid)' : 'var(--text-mid)', borderBottom: '2px solid ' + (tab === id ? 'var(--primary-mid)' : 'transparent'), transition: 'color 0.15s, border-color 0.15s, font-weight 0.15s' }}
     >{label}</button>
   );
 

@@ -31,7 +31,7 @@ function TabBar({ active, onChange, allowedTabs }) {
             fontSize: '14px', fontWeight: isActive ? '600' : '400',
             color: isActive ? 'var(--primary-mid)' : 'var(--text-mid)',
             borderBottom: `2px solid ${isActive ? 'var(--primary-mid)' : 'transparent'}`,
-            marginBottom: '-1px', transition: 'all 0.15s',
+            marginBottom: '-1px', transition: 'color 0.15s, border-color 0.15s, font-weight 0.15s',
           }}>
             <Icon size={16} /> {t.label}
           </button>

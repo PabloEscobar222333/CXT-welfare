@@ -206,7 +206,7 @@ export function EventDetail() {
                               style={{
                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                                 gap: '5px', padding: '5px 12px', borderRadius: '20px', fontSize: '12px',
-                                fontWeight: '600', cursor: 'pointer', transition: 'all 0.18s ease',
+                                fontWeight: '600', cursor: 'pointer', transition: 'background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease',
                                 border: isVisible
                                   ? '1px solid var(--primary-mid)'
                                   : '1px solid var(--border-color)',
