@@ -38,14 +38,17 @@ export function AuthProvider({ children }) {
         console.error('Could not verify user profile/role. Signing out for security.', error);
         await supabase.auth.signOut();
         setUser(null);
-        return;
+        return null;
       }
 
-      setUser({ ...authUser, ...data });
+      const enriched = { ...authUser, ...data };
+      setUser(enriched);
+      return enriched;
     } catch (err) {
       console.error('Unexpected error fetching user profile:', err);
       await supabase.auth.signOut();
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -55,8 +58,11 @@ export function AuthProvider({ children }) {
     // No mock bypass. No hardcoded credentials. All logins go through Supabase Auth.
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    await fetchUserProfile(data.user);
-    return { success: true };
+    // fetchUserProfile returns the enriched profile so callers can make
+    // immediate routing decisions (e.g. redirect to /reset-password)
+    // without waiting for a React re-render cycle.
+    const profile = await fetchUserProfile(data.user);
+    return { success: true, user: profile };
   };
 
   const signOut = async () => {

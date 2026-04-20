@@ -25,8 +25,12 @@ export function Login() {
     setError('');
     setLoading(true);
     try {
-      await signIn(email, password);
-      navigate('/dashboard');
+      const result = await signIn(email, password);
+      if (result?.user?.must_change_password) {
+        navigate('/reset-password', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
