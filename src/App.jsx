@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { InactivityGuard } from './components/InactivityGuard';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './pages/auth/Login';
 import { ResetPassword } from './pages/auth/ResetPassword';
@@ -71,6 +72,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <InactivityGuard />
         <DataProvider>
           <SettingsProvider>
           <ToastProvider>
