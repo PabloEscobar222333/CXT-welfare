@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { profileService } from '../../services/api';
+import { profileService, contributionService } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { useSettings } from '../../context/SettingsContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -206,6 +207,7 @@ function TempPasswordModal({ password, userName, onDone }) {
 
 // ─── Add / Edit Member Modal ──────────────────────────────────────────────────
 function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuperAdmin, submitting }) {
+  const _now = new Date();
   const [form, setForm] = useState({
     name:       member?.full_name || member?.name || '',
     memberId:   member?.member_id || member?.memberId || '',
@@ -213,6 +215,8 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
     phone:      member?.phone || '',
     role:       member?.role || 'member',
     department: member?.department || '',
+    beginMonth: _now.getMonth() + 1,
+    beginYear:  _now.getFullYear(),
   });
   const [errors, setErrors] = useState({});
   const [emailChecking, setEmailChecking] = useState(false);
@@ -352,6 +356,25 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
         </Field>
       </div>
 
+      {mode === 'add' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <Field label="Begin Payment Month" hint="Contributions start from this month">
+            <select value={form.beginMonth} onChange={e => setField('beginMonth', Number(e.target.value))} style={selectStyle}>
+              {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+                <option key={i} value={i + 1}>{m}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Begin Payment Year">
+            <select value={form.beginYear} onChange={e => setField('beginYear', Number(e.target.value))} style={selectStyle}>
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
+
       {rolePromptVisible && (
         <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '8px', padding: '16px', marginTop: '8px' }}>
           <p style={{ fontSize: '13px', color: '#92400E', margin: '0 0 12px 0', lineHeight: '1.5' }}>
@@ -398,6 +421,7 @@ export function Members() {
   const { user } = useAuth();
   const navigate  = useNavigate();
   const { addToast } = useToast();
+  const { settings } = useSettings();
 
   // ── Access guard ────────────────────────────────────────────────────────────
   if (user && !ALLOWED_ROLES.includes(user.role)) {
@@ -479,6 +503,22 @@ export function Members() {
       const result = await profileService.createAuthAndProfile(form, user?.id);
       logAudit('Member Created', `Created profile for ${form.name} (${form.memberId}) with role ${form.role}.`);
       await fetchMembers();
+
+      // Create initial contribution rows from the selected begin month through current month.
+      // Only for role='member' — admin/treasurer roles don't pay contributions.
+      const newMemberUuid = result?.data?.id;
+      if (newMemberUuid && (form.role === 'member' || !form.role)) {
+        try {
+          await contributionService.createInitialContributions(
+            newMemberUuid,
+            form.beginMonth,
+            form.beginYear,
+            settings.monthlyAmount || 50
+          );
+        } catch (contribErr) {
+          console.warn('Initial contributions creation failed (non-blocking):', contribErr);
+        }
+      }
 
       // Show the temporary password modal
       const returnedPassword = result?.tempPassword || result?.temp_password;

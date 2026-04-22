@@ -362,6 +362,42 @@ export const contributionService = {
 
   async updateContributionStatus(id, status) {
     return supabase.from('contributions').update({ status }).eq('id', id);
+  },
+
+  // Create initial unpaid contribution rows for a new member from startMonth/startYear
+  // through the current month. Uses upsert to avoid duplicates if rows already exist.
+  async createInitialContributions(memberUuid, startMonth, startYear, expectedAmount) {
+    const now = new Date();
+    const curMonth = now.getMonth() + 1;
+    const curYear  = now.getFullYear();
+    const amount   = Number(expectedAmount) || 50;
+
+    const rows = [];
+    let m = Number(startMonth);
+    let y = Number(startYear);
+
+    // Safety: cap at 24 months to prevent runaway loops
+    let safety = 0;
+    while ((y < curYear || (y === curYear && m <= curMonth)) && safety < 24) {
+      rows.push({
+        member_id:       memberUuid,
+        month:           m,
+        year:            y,
+        expected_amount: amount,
+        paid_amount:     0,
+        status:          'unpaid',
+      });
+      m++;
+      if (m > 12) { m = 1; y++; }
+      safety++;
+    }
+
+    if (rows.length === 0) return { data: [], error: null };
+
+    const { data, error } = await supabase
+      .from('contributions')
+      .upsert(rows, { onConflict: 'member_id,month,year' });
+    return { data, error };
   }
 };
 
