@@ -122,18 +122,53 @@ serve(async (req: Request) => {
     authUserId = adminData?.user?.id!;
     if (!authUserId) throw new Error('Supabase did not return a user id.');
 
+    // ── 7. Resolve a unique member_id server-side ─────────────────────────────
+    // The client suggests a member_id, but it may collide (race condition,
+    // stale client cache, RLS-limited view).  The service-role client can see
+    // every row, so we verify here and auto-increment if needed.
+    let memberId = uiData.memberId || '';
+    {
+      const { data: allIds } = await admin
+        .from('users')
+        .select('member_id')
+        .like('member_id', 'WEL-%');
+
+      const usedNums = new Set<number>();
+      (allIds || []).forEach((row: { member_id: string }) => {
+        const m = row.member_id?.match(/^WEL-(\d+)$/);
+        if (m) usedNums.add(parseInt(m[1], 10));
+      });
+
+      // If client-suggested ID is blank or already taken, compute the next one.
+      const clientMatch = memberId.match(/^WEL-(\d+)$/);
+      const clientNum   = clientMatch ? parseInt(clientMatch[1], 10) : null;
+
+      if (!clientNum || usedNums.has(clientNum)) {
+        let next = 0;
+        usedNums.forEach(n => { if (n > next) next = n; });
+        next += 1;
+        memberId = `WEL-${String(next).padStart(3, '0')}`;
+      }
+    }
+
     // ── 8. Insert the users profile row ─────────────────────────────────────
     const { data, error } = await admin.from('users').insert({
       id:                   authUserId,
       full_name:            uiData.name,
-      member_id:            uiData.memberId,
+      member_id:            memberId,
       email:                uiData.email,
       phone:                uiData.phone     || null,
       role:                 uiData.role      || 'member',
       status:               'active',
       must_change_password: true,
     }).select().single();
-    if (error) throw error;
+
+    if (error) {
+      // Profile insert failed — clean up the auth user we just created
+      // so it doesn't become an orphan blocking future retries.
+      await admin.auth.admin.deleteUser(authUserId);
+      throw error;
+    }
 
     // ── 9. Audit log with real client IP ─────────────────────────────────────
     const clientIp =

@@ -422,18 +422,37 @@ export const profileService = {
   },
 
   async getNextMemberId() {
-    const { data } = await supabase
-      .from('users')
-      .select('member_id')
-      .like('member_id', 'WEL-%')
-      .order('member_id', { ascending: false })
-      .limit(1);
-    if (data && data.length > 0) {
-      const last = data[0].member_id;
-      const num  = parseInt(last.replace('WEL-', ''), 10) || 0;
-      return `WEL-${String(num + 1).padStart(3, '0')}`;
+    try {
+      // Fetch ALL WEL-* member_ids so we can find the true numeric max.
+      // Lexicographic ORDER BY can mis-sort if padding widths differ.
+      const { data, error } = await supabase
+        .from('users')
+        .select('member_id')
+        .like('member_id', 'WEL-%');
+
+      if (error) {
+        console.error('[getNextMemberId] Query error:', error);
+        // Fallback: use timestamp-based ID to guarantee uniqueness
+        return `WEL-${String(Date.now()).slice(-6)}`;
+      }
+
+      if (!data || data.length === 0) return 'WEL-001';
+
+      // Extract numeric suffixes and find the maximum
+      let maxNum = 0;
+      data.forEach(row => {
+        const match = row.member_id?.match(/^WEL-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      });
+
+      return `WEL-${String(maxNum + 1).padStart(3, '0')}`;
+    } catch (err) {
+      console.error('[getNextMemberId] Unexpected error:', err);
+      return `WEL-${String(Date.now()).slice(-6)}`;
     }
-    return 'WEL-001';
   },
 
   // Delegates to the create-member Edge Function (service role never leaves server).
