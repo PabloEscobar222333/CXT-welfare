@@ -241,8 +241,14 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
   const handleEmailBlur = async () => {
     if (mode !== 'add' || !form.email) return;
     setEmailChecking(true);
-    const { exists } = await profileService.checkEmailExists(form.email);
-    if (exists) setErrors(e => ({ ...e, email: 'This email address is already registered.' }));
+    try {
+      const { exists } = await profileService.checkEmailExists(form.email);
+      if (exists) {
+        setErrors(e => ({ ...e, email: 'This email address is already registered.' }));
+      }
+    } catch {
+      // Network error during check — don't block the user; the edge function will catch it
+    }
     setEmailChecking(false);
   };
 
@@ -257,9 +263,20 @@ function MemberFormModal({ mode, member, onClose, onSave, currentUserId, isSuper
     return err;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const err = validate();
-    if (err.email === undefined && errors.email) err.email = errors.email; // carry forward dup check error
+    // Only re-check email existence if the field is otherwise valid (no format error)
+    // and we're in add mode. Do NOT carry forward stale onBlur errors.
+    if (mode === 'add' && !err.email && form.email.trim()) {
+      setEmailChecking(true);
+      try {
+        const { exists } = await profileService.checkEmailExists(form.email);
+        if (exists) err.email = 'This email address is already registered.';
+      } catch {
+        // If the check fails, let the edge function handle it
+      }
+      setEmailChecking(false);
+    }
     setErrors(err);
     if (Object.keys(err).length > 0) return;
 

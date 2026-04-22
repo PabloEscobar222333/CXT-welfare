@@ -121,8 +121,11 @@ export function Dashboard() {
   const isNegativeBalance = balance < 0;
 
   const thisMonthContribs = contributions.filter(c => c.month === currentMonth && c.year === currentYear);
-  const thisMonthPaid = thisMonthContribs.filter(c => c.status === 'paid' || c.status === 'partial').length;
-  const activeMembers = members.filter(m => m.status === 'active');
+  const thisMonthPaid = thisMonthContribs.filter(c => c.status === 'paid').length;
+  // Only count active users with role='member' — matches the contributions page logic.
+  // Admin/treasurer/chairman/secretary/auditor roles are not expected to pay contributions.
+  const activeMembers = members.filter(m => m.status === 'active' && m.role === 'member');
+  const allActiveMembers = members.filter(m => m.status === 'active');
   const unpaidCount = activeMembers.length - thisMonthPaid;
 
   const thisMonthExpenses = expenses.filter(ex => {
@@ -185,7 +188,7 @@ export function Dashboard() {
                 <Card>
                   <h3 style={{ fontSize: '16px', marginBottom: '1rem' }}>Members Overview</h3>
                   <div style={{ fontSize: '14px', color: 'var(--text-mid)', lineHeight: '1.8' }}>
-                    <div>Active Members: <strong>{activeMembers.length}</strong></div>
+                    <div>Active Members: <strong>{allActiveMembers.length}</strong></div>
                     <div>Disabled: <strong>{members.filter(m => m.status !== 'active').length}</strong></div>
                   </div>
                 </Card>

@@ -66,24 +66,63 @@ serve(async (req: Request) => {
     // ── 3. Parse request body ────────────────────────────────────────────────
     const uiData = await req.json();
 
-    // ── 4. Generate a cryptographically secure temp password (12 chars) ─────
+    // ── 4. Check for existing profile in the users table ─────────────────────
+    const { data: existingProfile } = await admin
+      .from('users')
+      .select('id')
+      .eq('email', uiData.email)
+      .maybeSingle();
+
+    if (existingProfile) {
+      return new Response(JSON.stringify({ error: 'A member with this email already exists in the system.' }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ── 5. Generate a cryptographically secure temp password (12 chars) ─────
     // Character set excludes ambiguous chars (I, l, O, 0, 1) for readability.
     const pwChars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
     const arr = new Uint8Array(12);
     crypto.getRandomValues(arr);
     const tempPassword = Array.from(arr).map(b => pwChars[b % pwChars.length]).join('');
 
-    // ── 5. Create the auth user ──────────────────────────────────────────────
-    const { data: adminData, error: adminError } = await admin.auth.admin.createUser({
-      email:         uiData.email,
-      password:      tempPassword,
-      email_confirm: true,
-    });
+    // ── 6. Create the auth user (with orphan recovery) ───────────────────────
+    // If a previous create-member call partially succeeded (auth user was
+    // created in auth.users but the public.users insert failed), the orphaned
+    // auth record blocks retries with "User already registered".
+    // Strategy: attempt creation → if duplicate, delete the orphan → retry once.
+    let authUserId: string;
+
+    const attemptCreate = async () => {
+      return admin.auth.admin.createUser({
+        email:         uiData.email,
+        password:      tempPassword,
+        email_confirm: true,
+      });
+    };
+
+    let { data: adminData, error: adminError } = await attemptCreate();
+
+    if (adminError && adminError.message?.toLowerCase().includes('already registered')) {
+      // Orphaned auth user detected — look it up and delete it, then retry.
+      const { data: lookupData } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const orphan = lookupData?.users?.find(
+        (u: { email?: string }) => u.email?.toLowerCase() === uiData.email.toLowerCase()
+      );
+      if (orphan) {
+        await admin.auth.admin.deleteUser(orphan.id);
+      }
+      // Retry creation after cleanup
+      const retry = await attemptCreate();
+      adminData  = retry.data;
+      adminError = retry.error;
+    }
+
     if (adminError) throw adminError;
-    const authUserId = adminData?.user?.id;
+    authUserId = adminData?.user?.id!;
     if (!authUserId) throw new Error('Supabase did not return a user id.');
 
-    // ── 6. Insert the users profile row ─────────────────────────────────────
+    // ── 8. Insert the users profile row ─────────────────────────────────────
     const { data, error } = await admin.from('users').insert({
       id:                   authUserId,
       full_name:            uiData.name,
@@ -96,7 +135,7 @@ serve(async (req: Request) => {
     }).select().single();
     if (error) throw error;
 
-    // ── 7. Audit log with real client IP ─────────────────────────────────────
+    // ── 9. Audit log with real client IP ─────────────────────────────────────
     const clientIp =
       req.headers.get('x-forwarded-for') ??
       req.headers.get('x-real-ip') ??
